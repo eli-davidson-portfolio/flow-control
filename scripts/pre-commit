@@ -1,0 +1,38 @@
+#!/bin/sh
+
+# Get the list of staged files
+STAGED_GO_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep ".go$")
+
+# Exit early if no Go files are staged
+if [ -z "$STAGED_GO_FILES" ]; then
+    exit 0
+fi
+
+echo "Running pre-commit checks..."
+
+# Save current state of files
+for file in $STAGED_GO_FILES; do
+    if [ -f "$file" ]; then
+        cp "$file" "$file.tmp"
+    fi
+done
+
+# Run make pre-commit
+make pre-commit
+RESULT=$?
+
+# Restore files to their original state
+for file in $STAGED_GO_FILES; do
+    if [ -f "$file.tmp" ]; then
+        mv "$file.tmp" "$file"
+        git add "$file"
+    fi
+done
+
+# If checks failed, print message and exit with error
+if [ $RESULT -ne 0 ]; then
+    echo "Pre-commit checks failed. Please fix the issues and try again."
+    exit 1
+fi
+
+exit 0 

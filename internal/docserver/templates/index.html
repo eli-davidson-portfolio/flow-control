@@ -1,0 +1,60 @@
+{{define "content"}}
+<div class="bg-white shadow rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-4">Flow Control Documentation</h1>
+        <div class="prose max-w-none">
+            <p class="text-gray-600 mb-6">
+                Welcome to the Flow Control documentation. Here you'll find detailed documentation for all packages
+                in the Flow Control codebase, including source code, examples, and usage guides.
+            </p>
+        </div>
+        
+        <div class="mt-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Project Packages</h2>
+            <div class="grid grid-cols-1 gap-4">
+                {{range .Packages}}
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h3 class="text-lg font-medium">
+                        <a href="/docs/pkg/{{.Path}}" class="text-blue-600 hover:text-blue-800">
+                            {{.Name}}
+                        </a>
+                    </h3>
+                    {{if .Description}}
+                    <p class="mt-1 text-gray-600">{{.Description}}</p>
+                    {{else}}
+                    <p class="mt-1 text-gray-500 italic">No description available</p>
+                    {{end}}
+                    <div class="mt-2">
+                        <a href="/docs/pkg/{{.Path}}" class="text-sm text-blue-600 hover:text-blue-800">
+                            View Documentation →
+                        </a>
+                        <span class="mx-2 text-gray-300">|</span>
+                        <a href="/docs/src/internal/{{.Path}}" class="text-sm text-blue-600 hover:text-blue-800">
+                            View Source →
+                        </a>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <div class="mt-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Additional Resources</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <a href="/api/docs/swagger/index.html" class="block p-4 bg-gray-50 rounded-lg hover:bg-gray-100">
+                    <h3 class="text-lg font-medium text-blue-600">API Documentation</h3>
+                    <p class="mt-1 text-gray-600">
+                        Explore the REST API endpoints, request/response schemas, and examples.
+                    </p>
+                </a>
+                <a href="/docs/flow-language" class="block p-4 bg-gray-50 rounded-lg hover:bg-gray-100">
+                    <h3 class="text-lg font-medium text-blue-600">Flow Language Guide</h3>
+                    <p class="mt-1 text-gray-600">
+                        Learn about the Flow language syntax, features, and best practices.
+                    </p>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}} 

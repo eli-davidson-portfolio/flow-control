@@ -1,0 +1,40 @@
+{{define "content"}}
+<div class="bg-white shadow rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-4">Packages</h1>
+        <div class="prose max-w-none">
+            <p class="text-gray-600 mb-6">
+                Browse all packages in the Flow Control codebase.
+            </p>
+        </div>
+        
+        <div class="mt-8">
+            <div class="grid grid-cols-1 gap-4">
+                {{range .Packages}}
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h3 class="text-lg font-medium">
+                        <a href="/docs/pkg/{{.Name}}" class="text-blue-600 hover:text-blue-800">
+                            {{.Name}}
+                        </a>
+                    </h3>
+                    {{if .Description}}
+                    <p class="mt-1 text-gray-600">{{.Description}}</p>
+                    {{else}}
+                    <p class="mt-1 text-gray-500 italic">No description available</p>
+                    {{end}}
+                    <div class="mt-2">
+                        <a href="/docs/pkg/{{.Name}}" class="text-sm text-blue-600 hover:text-blue-800">
+                            View Documentation →
+                        </a>
+                        <span class="mx-2 text-gray-300">|</span>
+                        <a href="/docs/src/{{.Name}}" class="text-sm text-blue-600 hover:text-blue-800">
+                            View Source →
+                        </a>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+</div>
+{{end}} 

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow Control IDE</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="h-screen w-full flex flex-col bg-slate-900 text-slate-200">
+    <!-- Top Bar -->
+    <div class="h-14 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-4">
+        <div class="flex items-center space-x-4">
+            <h1 class="font-bold text-lg text-blue-400">Flow Control</h1>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button class="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 text-sm"
+                    hx-get="/flows/new"
+                    hx-target="#editor-content">
+                New Flow
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex">
+        <!-- Sidebar -->
+        <div class="w-64 border-r border-slate-700 bg-slate-800"
+             hx-get="/flows"
+             hx-trigger="load"
+             hx-target="find .flow-list">
+            <div class="p-4">
+                <h2 class="font-semibold text-slate-200 mb-3">Flows</h2>
+                <div class="flow-list space-y-1">
+                    <!-- Flow list will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Content Grid -->
+        <div class="flex-1 grid grid-cols-2 grid-rows-2 gap-1 bg-slate-800 p-1">
+            <!-- Flow Diagram -->
+            <div class="bg-slate-900 p-4 rounded-md flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold text-slate-200">Flow Diagram</h3>
+                    <div class="flex items-center space-x-2">
+                        <button class="p-1.5 rounded-md bg-green-600 hover:bg-green-700"
+                                hx-post="/flows/{flowId}/start"
+                                hx-target="#flow-status">
+                            Start
+                        </button>
+                    </div>
+                </div>
+                <div id="flow-diagram" class="flex-1 bg-slate-800 rounded-md p-4 overflow-auto">
+                    <!-- Mermaid diagram will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Metrics -->
+            <div class="bg-slate-900 p-4 rounded-md">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold text-slate-200">Metrics</h3>
+                    <select class="text-sm bg-slate-800 border border-slate-700 rounded px-2 py-1"
+                            hx-get="/flows/{flowId}/metrics"
+                            hx-target="#metrics-content">
+                        <option value="5m">Last 5m</option>
+                        <option value="15m">Last 15m</option>
+                        <option value="1h">Last 1h</option>
+                    </select>
+                </div>
+                <div id="metrics-content" class="grid grid-cols-2 gap-4">
+                    <!-- Metrics will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Code Editor -->
+            <div class="bg-slate-900 p-4 rounded-md flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold text-slate-200">Flow Configuration</h3>
+                    <div class="flex items-center space-x-2">
+                        <button class="px-3 py-1.5 text-sm rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+                                hx-post="/flows/{flowId}"
+                                hx-target="#editor-content">
+                            Save
+                        </button>
+                    </div>
+                </div>
+                <div id="editor-content" class="flex-1 font-mono text-sm bg-slate-800 rounded-md p-4 overflow-auto">
+                    <!-- Monaco editor will be initialized here -->
+                </div>
+            </div>
+
+            <!-- Console -->
+            <div class="bg-slate-900 p-4 rounded-md flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold text-slate-200">Console</h3>
+                    <div class="flex items-center gap-2">
+                        <button class="px-2 py-1 text-xs rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700"
+                                hx-post="/flows/{flowId}/logs/clear"
+                                hx-target="#console-content">
+                            Clear
+                        </button>
+                        <select class="text-sm bg-slate-800 border border-slate-700 rounded px-2 py-1"
+                                hx-get="/flows/{flowId}/logs"
+                                hx-target="#console-content">
+                            <option value="all">All Levels</option>
+                            <option value="error">Errors</option>
+                            <option value="warn">Warnings</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="console-content" class="flex-1 font-mono text-sm bg-slate-800 rounded-md p-4 overflow-auto">
+                    <!-- Logs will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="h-8 border-t border-slate-700 bg-slate-800 flex items-center justify-between px-4 text-sm text-slate-300">
+        <div class="flex items-center space-x-4">
+            <div id="flow-status" class="flex items-center space-x-2">
+                <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                <span>System Online</span>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2 text-slate-400">
+            <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+            <span>Connected</span>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/monaco-editor@latest/min/vs/loader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="/static/js/main.js"></script>
+</body>
+</html> 

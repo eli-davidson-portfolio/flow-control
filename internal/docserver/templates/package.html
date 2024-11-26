@@ -1,0 +1,47 @@
+{{define "content"}}
+<div class="bg-white shadow rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+        <nav class="text-sm font-medium mb-4">
+            <ol class="list-none p-0 inline-flex">
+                <li class="flex items-center">
+                    <a href="/docs" class="text-blue-500 hover:text-blue-600">Documentation</a>
+                    <svg class="h-5 w-5 text-gray-400 mx-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    </svg>
+                </li>
+                <li class="text-gray-500">{{.Title}}</li>
+            </ol>
+        </nav>
+
+        <div class="mb-8">
+            <h1 class="text-2xl font-bold text-gray-900">Package {{.Title}}</h1>
+            {{if .Description}}
+            <p class="mt-2 text-gray-600">{{.Description}}</p>
+            {{end}}
+        </div>
+
+        <div class="mt-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Package Files</h2>
+            <div class="bg-gray-50 rounded-lg divide-y divide-gray-200">
+                {{range .Files}}
+                <div class="p-4 hover:bg-gray-100">
+                    <a href="/docs/src/internal/{{$.Title}}/{{.}}" class="flex items-center text-blue-600 hover:text-blue-800">
+                        <svg class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
+                        </svg>
+                        {{.}}
+                    </a>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <div class="mt-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Package Documentation</h2>
+            <div class="prose max-w-none bg-gray-50 p-6 rounded-lg">
+                {{.Content}}
+            </div>
+        </div>
+    </div>
+</div>
+{{end}} 

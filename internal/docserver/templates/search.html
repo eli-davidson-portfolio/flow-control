@@ -1,0 +1,25 @@
+{{define "content"}}
+<div class="bg-white shadow rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-4">Search Results</h1>
+        
+        <div class="mb-6">
+            <form action="/search" method="GET" class="flex max-w-lg">
+                <input type="text" name="q" value="{{.Query}}" placeholder="Search documentation..."
+                       class="flex-1 px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    Search
+                </button>
+            </form>
+        </div>
+
+        {{if .Query}}
+        <div class="doc-content">
+            {{.Results}}
+        </div>
+        {{else}}
+        <p class="text-gray-600">Enter a search term to find packages, types, functions, and more.</p>
+        {{end}}
+    </div>
+</div>
+{{end}} 

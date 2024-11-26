@@ -1,0 +1,303 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {}
+    },
+    "paths": {
+        "/flows": {
+            "get": {
+                "description": "Get a list of all flows",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "flows"
+                ],
+                "summary": "List all flows",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/flow-control_internal_types.RuntimeFlow"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new flow with the provided configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "flows"
+                ],
+                "summary": "Create a new flow",
+                "parameters": [
+                    {
+                        "description": "Flow configuration",
+                        "name": "flow",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/flow-control_internal_types.RuntimeFlow"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/flow-control_internal_types.RuntimeFlow"
+                        }
+                    }
+                }
+            }
+        },
+        "/flows/{id}": {
+            "get": {
+                "description": "Get a flow's details by its ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "flows"
+                ],
+                "summary": "Get a flow by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Flow ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/flow-control_internal_types.RuntimeFlow"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update an existing flow's configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "flows"
+                ],
+                "summary": "Update a flow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Flow ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated flow configuration",
+                        "name": "flow",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/flow-control_internal_types.RuntimeFlow"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/flow-control_internal_types.RuntimeFlow"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a flow by its ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "flows"
+                ],
+                "summary": "Delete a flow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Flow ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/flows/{id}/events": {
+            "get": {
+                "description": "Get real-time events for a flow via SSE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "flows"
+                ],
+                "summary": "Get flow events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Flow ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/flow-control_internal_types.FlowEvent"
+                        }
+                    }
+                }
+            }
+        },
+        "/flows/{id}/status": {
+            "put": {
+                "description": "Update a flow's status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "flows"
+                ],
+                "summary": "Update flow status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Flow ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New status",
+                        "name": "status",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "flow-control_internal_types.FlowEvent": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "description": "Data contains additional event-specific data",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "flow_id": {
+                    "description": "FlowID identifies the flow that generated the event",
+                    "type": "string"
+                },
+                "message": {
+                    "description": "Message provides details about the event",
+                    "type": "string"
+                },
+                "node_id": {
+                    "description": "NodeID identifies the node that generated the event",
+                    "type": "string"
+                },
+                "timestamp": {
+                    "description": "Timestamp indicates when the event occurred",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Type indicates the kind of event",
+                    "type": "string"
+                }
+            }
+        },
+        "flow-control_internal_types.RuntimeFlow": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "description": "Config contains the flow's configuration in JSON format",
+                    "type": "string"
+                },
+                "created_at": {
+                    "description": "CreatedAt is the timestamp when the flow was created",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "Description provides additional details about the flow",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID uniquely identifies the flow",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is a human-readable name for the flow",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Status represents the current state of the flow",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "UpdatedAt is the timestamp when the flow was last updated",
+                    "type": "string"
+                },
+                "version": {
+                    "description": "Version is the flow's version number",
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

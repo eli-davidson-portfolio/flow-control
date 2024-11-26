@@ -1,0 +1,111 @@
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - gosimple
+    - goconst
+    - gocyclo
+    - gofmt
+    - goimports
+    - revive
+    - misspell
+    - testpackage
+    - thelper
+    - gocritic
+
+linters-settings:
+  govet:
+    enable:
+      - asmdecl
+      - assign
+      - atomic
+      - bools
+      - buildtag
+      - cgocall
+      - composites
+      - copylocks
+      - errorsas
+      - framepointer
+      - httpresponse
+      - ifaceassert
+      - loopclosure
+      - lostcancel
+      - nilfunc
+      - printf
+      - shift
+      - stdmethods
+      - stringintconv
+      - structtag
+      - testinggoroutine
+      - tests
+      - unmarshal
+      - unreachable
+      - unsafeptr
+      - unusedresult
+  gocyclo:
+    min-complexity: 15
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  misspell:
+    locale: US
+  goimports:
+    local-prefixes: github.com/yourusername/flow-control
+  revive:
+    rules:
+      - name: exported
+        arguments:
+          - checkPrivateReceivers
+          - disableStutteringCheck
+      - name: package-comments
+        severity: error
+        disabled: false
+        arguments:
+          - "^(/\\*|// )Package \\w+ .+\\.$"  # First line must be "Package name description."
+          - "^(/\\*|// ).*$"                  # Additional lines must be comments
+          - "^(/\\*|// )\\s*$"                # Empty lines must be comments
+          - "^(/\\*|// )Example:"             # Example section must be marked
+      - name: dot-imports
+        disabled: false
+      - name: blank-imports
+        disabled: false
+        arguments:
+          - allowRegexp: "^_"
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    settings:
+      captLocal:
+        paramsOnly: true
+      rangeValCopy:
+        sizeThreshold: 32
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-dirs:
+    - vendor
+    - third_party
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - dupl
+        - gosec
+    - path: _test\.go
+      text: "weak cryptographic primitive"
+
+run:
+  timeout: 5m
+  tests: true
+  build-tags:
+    - integration
+  modules-download-mode: readonly
