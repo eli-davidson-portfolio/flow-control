@@ -28,7 +28,7 @@
                 <div class="p-4 bg-gray-100 border-b border-gray-200">
                     <div class="flex items-center justify-between">
                         <span class="text-sm font-medium text-gray-600">Source Code</span>
-                        <a href="#" class="text-sm text-blue-600 hover:text-blue-800" onclick="copyToClipboard()">Copy</a>
+                        <button onclick="copyToClipboard()" class="text-sm text-blue-600 hover:text-blue-800">Copy</button>
                     </div>
                 </div>
                 <pre class="p-4 overflow-x-auto"><code class="language-go">{{.Content}}</code></pre>
@@ -36,10 +36,6 @@
         </div>
     </div>
 </div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-go.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css">
 
 <script>
 function copyToClipboard() {

@@ -130,3 +130,89 @@ The project is organized into the following packages:
    - Add user guide
    - Add developer guide
    - Add architecture documentation
+
+## Logging System
+
+1. File-based Logging
+   - Logs are written to `logs/flow-control.log` by default
+   - JSON-formatted log entries for structured logging
+   - Log rotation with configurable settings:
+     - Maximum file size (default: 100MB)
+     - Maximum number of backups (default: 5)
+     - Maximum age of files (default: 30 days)
+     - Compression of old files (enabled by default)
+
+2. Log Levels
+   - DEBUG: Detailed information for debugging
+   - INFO: General operational information
+   - WARN: Warning messages for potential issues
+   - ERROR: Error conditions that need attention
+
+3. Structured Fields
+   - All log entries support structured fields
+   - Component-based logging with `WithComponent`
+   - Timestamp in UTC format
+   - Error details included when relevant
+
+4. Example Log Entry:
+   ```json
+   {
+     "time": "2024-01-20T15:04:05Z",
+     "level": "INFO",
+     "message": "Server starting",
+     "fields": {
+       "component": "server",
+       "port": 8080
+     }
+   }
+   ```
+
+5. Configuration
+   - Configurable through `logger.Config`
+   - Default configuration provided
+   - Can be customized per instance
+   - Log directory created automatically
+
+## Log Analysis
+
+1. Query Capabilities
+   - Search by time range
+   - Filter by log level
+   - Filter by component
+   - Search message content
+   - Combine multiple criteria
+
+2. Reading Methods
+   - `ReadLogs`: Query logs with specific criteria
+   - `ReadRecentLogs`: Get most recent N entries
+   - `TailLogs`: Stream new log entries in real-time
+
+3. Example Usage:
+   ```go
+   // Read logs from the last hour with errors
+   logs, err := logger.ReadLogs(LogQuery{
+       StartTime: time.Now().Add(-1 * time.Hour),
+       Level:     "error",
+   })
+
+   // Get last 100 log entries
+   recent, err := logger.ReadRecentLogs(100)
+
+   // Stream logs in real-time
+   stop := make(chan struct{})
+   go logger.TailLogs(os.Stdout, stop)
+   ```
+
+4. Query Parameters
+   - StartTime: Beginning of time range
+   - EndTime: End of time range
+   - Level: Log level filter (debug, info, warn, error)
+   - Component: Filter by component name
+   - Contains: Search text in message content
+
+5. Use Cases
+   - Debugging application issues
+   - Monitoring system behavior
+   - Auditing operations
+   - Performance analysis
+   - Error tracking and investigation

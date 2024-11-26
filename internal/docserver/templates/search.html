@@ -1,24 +1,58 @@
 {{define "content"}}
 <div class="bg-white shadow rounded-lg">
     <div class="px-4 py-5 sm:p-6">
-        <h1 class="text-2xl font-bold text-gray-900 mb-4">Search Results</h1>
-        
-        <div class="mb-6">
-            <form action="/search" method="GET" class="flex max-w-lg">
-                <input type="text" name="q" value="{{.Query}}" placeholder="Search documentation..."
-                       class="flex-1 px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    Search
-                </button>
-            </form>
+        <h1 class="text-2xl font-bold text-gray-900 mb-4">Search Documentation</h1>
+        <div class="prose max-w-none">
+            <p class="text-gray-600 mb-6">
+                Search through packages, documentation, and source code.
+            </p>
         </div>
 
+        <form action="/docs/search" method="GET" class="mt-8">
+            <div class="max-w-xl">
+                <label for="search" class="block text-sm font-medium text-gray-700">Search term</label>
+                <div class="mt-1 flex rounded-md shadow-sm">
+                    <input
+                        type="text"
+                        name="q"
+                        id="search"
+                        class="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder="Enter search term..."
+                        value="{{.Query}}"
+                    >
+                    <button
+                        type="submit"
+                        class="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                        Search
+                    </button>
+                </div>
+            </div>
+        </form>
+
         {{if .Query}}
-        <div class="doc-content">
-            {{.Results}}
+        <div class="mt-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Results for "{{.Query}}"</h2>
+            {{if .Results}}
+            <div class="space-y-4">
+                {{range .Results}}
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h3 class="text-lg font-medium">
+                        <a href="{{.URL}}" class="text-blue-600 hover:text-blue-800">
+                            {{.Title}}
+                        </a>
+                    </h3>
+                    <p class="mt-1 text-gray-600">{{.Description}}</p>
+                    <div class="mt-2 text-sm text-gray-500">
+                        {{.Path}}
+                    </div>
+                </div>
+                {{end}}
+            </div>
+            {{else}}
+            <p class="text-gray-600">No results found for "{{.Query}}"</p>
+            {{end}}
         </div>
-        {{else}}
-        <p class="text-gray-600">Enter a search term to find packages, types, functions, and more.</p>
         {{end}}
     </div>
 </div>

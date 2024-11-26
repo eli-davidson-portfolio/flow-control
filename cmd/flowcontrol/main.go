@@ -20,8 +20,6 @@ import (
 	"flow-control/internal/store"
 )
 
-// Package main is the entry point for the Flow Control application.
-// It initializes the configuration, logger, store, and server components.
 func main() {
 	// Create logger
 	log := logger.New()
@@ -45,8 +43,9 @@ func main() {
 
 	// Create documentation server
 	docs := docserver.New(log)
-	srv.Mount("/docs", docs.Routes())
+	srv.Mount("/", docs.Routes())
 
+	// Create HTTP server
 	httpServer := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
 		Handler: srv,

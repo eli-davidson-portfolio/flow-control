@@ -1,83 +1,49 @@
+{{define "base"}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Title}} - Flow Control Documentation</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css" rel="stylesheet">
-    <style>
-        /* Base styles */
-        pre { background-color: #f7f7f7; padding: 1rem; border-radius: 0.5rem; }
-        .doc-content h1 { font-size: 2rem; font-weight: bold; margin: 1.5rem 0; }
-        .doc-content h2 { font-size: 1.5rem; font-weight: bold; margin: 1.25rem 0; }
-        .doc-content h3 { font-size: 1.25rem; font-weight: bold; margin: 1rem 0; }
-        .doc-content p { margin: 1rem 0; }
-        .doc-content code { background-color: #f0f0f0; padding: 0.25rem; border-radius: 0.25rem; }
-
-        /* Godoc styles */
-        .pkg-dir { margin: 1rem 0; }
-        .pkg-name { color: #375EAB; text-decoration: none; }
-        .pkg-synopsis { color: #666; margin-left: 1rem; }
-        .permalink { color: #999; text-decoration: none; margin-left: 0.5rem; }
-        .decl { background-color: #f8f8f8; padding: 0.5rem; margin: 0.5rem 0; border-radius: 0.25rem; }
-        .docs { margin-left: 2rem; }
-        .example { background-color: #f0f8ff; padding: 1rem; margin: 1rem 0; border-radius: 0.5rem; }
-        .search-results { margin: 1rem 0; }
-        .search-result { margin: 0.5rem 0; padding: 0.5rem; border-bottom: 1px solid #eee; }
-
-        /* Code highlighting */
-        .token.comment { color: #6a737d; }
-        .token.keyword { color: #d73a49; }
-        .token.string { color: #032f62; }
-        .token.number { color: #005cc5; }
-        .token.function { color: #6f42c1; }
-        .token.operator { color: #d73a49; }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css">
 </head>
-<body class="bg-gray-50">
-    <nav class="bg-white shadow-md">
+<body class="bg-gray-100 min-h-screen">
+    <nav class="bg-white shadow">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex">
                     <div class="flex-shrink-0 flex items-center">
-                        <a href="/" class="text-xl font-bold text-gray-800">Flow Control</a>
+                        <a href="/docs" class="text-xl font-bold text-gray-800">Flow Control</a>
                     </div>
                     <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-                        <a href="/docs" class="text-gray-600 hover:text-gray-800 px-3 py-2 rounded-md">Documentation</a>
-                        <a href="/docs/pkg" class="text-gray-600 hover:text-gray-800 px-3 py-2 rounded-md">Packages</a>
-                        <a href="/docs/src" class="text-gray-600 hover:text-gray-800 px-3 py-2 rounded-md">Source</a>
-                        <a href="/api/swagger/index.html" class="text-gray-600 hover:text-gray-800 px-3 py-2 rounded-md">API</a>
+                        <a href="/docs/pkg" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Packages
+                        </a>
+                        <a href="/docs/src" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            Source
+                        </a>
+                        <a href="/api/swagger/index.html" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            API
+                        </a>
                     </div>
-                </div>
-                <div class="flex items-center">
-                    <form action="/docs/search" method="GET" class="flex">
-                        <input type="text" name="q" placeholder="Search documentation..."
-                               class="px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            Search
-                        </button>
-                    </form>
                 </div>
             </div>
         </div>
     </nav>
 
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div class="px-4 py-6 sm:px-0">
-            {{template "content" .}}
-        </div>
+        {{template "content" .}}
     </main>
-
-    <footer class="bg-white border-t border-gray-200 mt-8">
-        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-            <p class="text-center text-gray-500">
-                Flow Control Documentation
-            </p>
-        </div>
-    </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-go.min.js"></script>
+    <script>
+        // Re-run Prism highlighting after the page loads
+        document.addEventListener('DOMContentLoaded', (event) => {
+            Prism.highlightAll();
+        });
+    </script>
 </body>
-</html> 
+</html>
+{{end}} 

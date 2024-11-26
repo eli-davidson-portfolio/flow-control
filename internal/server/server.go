@@ -6,8 +6,9 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
+	"os"
+	"time"
 
 	// Import swagger docs
 	_ "flow-control/docs"
@@ -43,29 +44,66 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) setupRoutes() {
+	// Add middleware
 	s.router.Use(middleware.Logger)
 	s.router.Use(middleware.Recoverer)
 
-	// Root handler redirects to documentation
+	// API routes
+	s.router.Route("/api", func(r chi.Router) {
+		// Swagger UI
+		r.Get("/swagger/*", httpSwagger.Handler(
+			httpSwagger.URL("/api/swagger/doc.json"),
+		))
+
+		// Flow routes
+		r.Route("/flows", func(r chi.Router) {
+			r.Get("/", s.handleListFlows)
+			r.Post("/", s.handleCreateFlow)
+			r.Get("/{id}", s.handleGetFlow)
+			r.Put("/{id}", s.handleUpdateFlow)
+			r.Delete("/{id}", s.handleDeleteFlow)
+		})
+	})
+
+	// Documentation routes
 	s.router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/docs", http.StatusFound)
 	})
 
-	// Swagger documentation
-	s.router.Get("/api/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL("/api/swagger/doc.json"),
-	))
-
-	// API routes
-	s.router.Route("/api", func(r chi.Router) {
-		r.Get("/flows", s.handleListFlows)
-		r.Post("/flows", s.handleCreateFlow)
-		r.Get("/flows/{id}", s.handleGetFlow)
-		r.Put("/flows/{id}", s.handleUpdateFlow)
-		r.Delete("/flows/{id}", s.handleDeleteFlow)
-		r.Put("/flows/{id}/status", s.handleUpdateFlowStatus)
-		r.Get("/flows/{id}/events", s.handleFlowEvents)
+	// Internal management routes
+	s.router.Route("/_internal", func(r chi.Router) {
+		r.Post("/shutdown", s.handleShutdown)
 	})
+}
+
+// handleShutdown handles server shutdown requests
+func (s *Server) handleShutdown(w http.ResponseWriter, r *http.Request) {
+	// Only allow POST method
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Check for shutdown header
+	if r.Header.Get("X-Server-Shutdown") != "old-instance" {
+		http.Error(w, "Invalid shutdown request", http.StatusBadRequest)
+		return
+	}
+
+	// Log shutdown request
+	s.log.Info("Received shutdown request", types.Fields{
+		"remote_addr": r.RemoteAddr,
+	})
+
+	// Send accepted response
+	w.WriteHeader(http.StatusAccepted)
+
+	// Trigger shutdown in a goroutine
+	go func() {
+		time.Sleep(100 * time.Millisecond) // Give time for response to be sent
+		s.log.Info("Initiating server shutdown", nil)
+		os.Exit(0)
+	}()
 }
 
 // Mount mounts a sub-router at the specified path
@@ -232,103 +270,4 @@ func (s *Server) handleDeleteFlow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-}
-
-// @Summary Update flow status
-// @Description Update a flow's status
-// @Tags flows
-// @Accept json
-// @Produce json
-// @Param id path string true "Flow ID"
-// @Param status body string true "New status"
-// @Success 200 "OK"
-// @Router /flows/{id}/status [put]
-func (s *Server) handleUpdateFlowStatus(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	var status struct {
-		Status string `json:"status"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&status); err != nil {
-		s.log.Error("Failed to decode status", err, types.Fields{
-			"function": "handleUpdateFlowStatus",
-			"flow_id":  id,
-		})
-		http.Error(w, "Invalid status data", http.StatusBadRequest)
-		return
-	}
-
-	if err := s.store.UpdateFlowStatus(id, status.Status); err != nil {
-		s.log.Error("Failed to update flow status", err, types.Fields{
-			"function": "handleUpdateFlowStatus",
-			"flow_id":  id,
-			"status":   status.Status,
-		})
-		http.Error(w, "Failed to update flow status", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-}
-
-// @Summary Get flow events
-// @Description Get real-time events for a flow via SSE
-// @Tags flows
-// @Accept json
-// @Produce text/event-stream
-// @Param id path string true "Flow ID"
-// @Success 200 {object} types.FlowEvent
-// @Router /flows/{id}/events [get]
-func (s *Server) handleFlowEvents(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-
-	// Set headers for SSE
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	// Create event channel
-	events := make(chan types.FlowEvent)
-	defer close(events)
-
-	// Start event stream
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		s.log.Error("Streaming not supported", nil, types.Fields{
-			"function": "handleFlowEvents",
-			"flow_id":  id,
-		})
-		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
-		return
-	}
-
-	// Keep connection alive until client disconnects
-	go func() {
-		<-r.Context().Done()
-		s.log.Info("Client disconnected", types.Fields{
-			"function": "handleFlowEvents",
-			"flow_id":  id,
-		})
-	}()
-
-	// Send events
-	for event := range events {
-		data, err := json.Marshal(event)
-		if err != nil {
-			s.log.Error("Failed to marshal event", err, types.Fields{
-				"function": "handleFlowEvents",
-				"flow_id":  id,
-			})
-			continue
-		}
-
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
-			s.log.Error("Failed to write event", err, types.Fields{
-				"function": "handleFlowEvents",
-				"flow_id":  id,
-			})
-			return
-		}
-		flusher.Flush()
-	}
 }

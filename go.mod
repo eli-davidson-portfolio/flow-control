@@ -10,6 +10,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.8.12
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (

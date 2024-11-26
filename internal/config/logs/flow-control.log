@@ -1,0 +1,8 @@
+{"time":"2024-11-26T22:23:48Z","level":"INFO","message":"No config file provided, using defaults","fields":{"function":"Load"}}
+{"time":"2024-11-26T22:23:48Z","level":"INFO","message":"Configuration loaded successfully","fields":{"function":"Load","path":"/var/folders/d2/hcl8vb0d2y1_3yv75pbtf4d00000gn/T/config-59885996.json"}}
+{"time":"2024-11-26T22:23:48Z","level":"ERROR","message":"Failed to parse config file","error":"json: cannot unmarshal number into Go struct field .server.host of type string","fields":{"function":"Load","path":"/var/folders/d2/hcl8vb0d2y1_3yv75pbtf4d00000gn/T/config-4184519295.json"}}
+{"time":"2024-11-26T22:23:48Z","level":"ERROR","message":"Failed to read config file","error":"open nonexistent.json: no such file or directory","fields":{"function":"Load","path":"nonexistent.json"}}
+{"time":"2024-11-26T22:24:46Z","level":"INFO","message":"No config file provided, using defaults","fields":{"function":"Load"}}
+{"time":"2024-11-26T22:24:46Z","level":"INFO","message":"Configuration loaded successfully","fields":{"function":"Load","path":"/var/folders/d2/hcl8vb0d2y1_3yv75pbtf4d00000gn/T/config-1421866392.json"}}
+{"time":"2024-11-26T22:24:46Z","level":"ERROR","message":"Failed to parse config file","error":"json: cannot unmarshal number into Go struct field .server.host of type string","fields":{"function":"Load","path":"/var/folders/d2/hcl8vb0d2y1_3yv75pbtf4d00000gn/T/config-1150508122.json"}}
+{"time":"2024-11-26T22:24:46Z","level":"ERROR","message":"Failed to read config file","error":"open nonexistent.json: no such file or directory","fields":{"function":"Load","path":"nonexistent.json"}}
