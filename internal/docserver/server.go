@@ -247,6 +247,7 @@ func (s *Server) handlePackage(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSource(w http.ResponseWriter, r *http.Request) {
 	// Remove /src/ prefix and handle both with and without trailing slash
 	path := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, "/src/"), "/")
+	path = strings.TrimPrefix(path, "docs/src/") // Remove any docs/src prefix
 	s.log.Debug("Processing source path", types.Fields{
 		"component": "docserver",
 		"path":      path,
@@ -255,7 +256,7 @@ func (s *Server) handleSource(w http.ResponseWriter, r *http.Request) {
 	// Construct the full file path relative to workspace root
 	filePath := path
 	if !strings.HasPrefix(path, "internal/") {
-		filePath = filepath.Join("internal", strings.TrimPrefix(path, "docs/src/"))
+		filePath = filepath.Join("internal", path)
 	}
 
 	s.log.Debug("Looking for source file", types.Fields{

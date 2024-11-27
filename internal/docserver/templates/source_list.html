@@ -13,7 +13,7 @@
                 {{range .Packages}}
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <h3 class="text-lg font-medium">
-                        <a href="/docs/src/{{.Name}}" class="text-blue-600 hover:text-blue-800">
+                        <a href="/docs/src/{{.Path}}" class="text-blue-600 hover:text-blue-800">
                             {{.Name}}
                         </a>
                     </h3>
@@ -23,11 +23,11 @@
                     <p class="mt-1 text-gray-500 italic">No description available</p>
                     {{end}}
                     <div class="mt-2">
-                        <a href="/docs/src/{{.Name}}" class="text-sm text-blue-600 hover:text-blue-800">
+                        <a href="/docs/src/{{.Path}}" class="text-sm text-blue-600 hover:text-blue-800">
                             View Source →
                         </a>
                         <span class="mx-2 text-gray-300">|</span>
-                        <a href="/docs/pkg/{{.Name}}" class="text-sm text-blue-600 hover:text-blue-800">
+                        <a href="/docs/pkg/{{.Path}}" class="text-sm text-blue-600 hover:text-blue-800">
                             View Documentation →
                         </a>
                     </div>
