@@ -26,12 +26,14 @@ SERVER_PORT=8080
 
 # Build flags
 BUILD_FLAGS=-v
-
-# Test flags
 TEST_FLAGS=-v -race -count=1
 
 # Alpine packages
 ALPINE_PACKAGES=gcc musl-dev sqlite-dev binutils binutils-gold
+
+# SQLite flags
+export CGO_ENABLED=1
+export CGO_CFLAGS=-D_FILE_OFFSET_BITS=64
 
 all: check build
 
@@ -42,7 +44,7 @@ run: check
 	$(GORUN) $(MAIN_PATH)
 
 test:
-	$(DOCKER_RUN) sh -c "apk add --no-cache $(ALPINE_PACKAGES) && go test -v ./..."
+	$(DOCKER_RUN) sh -c "apk add --no-cache $(ALPINE_PACKAGES) && CGO_ENABLED=1 CGO_CFLAGS='-D_FILE_OFFSET_BITS=64' go test -v ./..."
 
 clean:
 	$(GOCLEAN)
