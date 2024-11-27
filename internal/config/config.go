@@ -36,7 +36,7 @@ var defaultConfig = Config{
 		Host string `json:"host"`
 		Port int    `json:"port"`
 	}{
-		Host: "localhost",
+		Host: "0.0.0.0",
 		Port: 8080,
 	},
 	Database: struct {

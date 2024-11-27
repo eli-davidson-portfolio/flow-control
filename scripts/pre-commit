@@ -17,8 +17,8 @@ for file in $STAGED_GO_FILES; do
     fi
 done
 
-# Run make pre-commit
-make pre-commit
+# Run make pre-commit in Docker with -T flag to disable TTY allocation
+docker compose run -T --rm test sh -c "make pre-commit"
 RESULT=$?
 
 # Restore files to their original state

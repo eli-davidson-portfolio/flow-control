@@ -4,6 +4,10 @@
 BINARY=flowcontrol
 MAIN_PATH=cmd/flowcontrol/main.go
 
+# Docker commands
+DOCKER_COMPOSE=docker compose
+DOCKER_RUN=$(DOCKER_COMPOSE) run -T --rm test
+
 # Go parameters
 GOCMD=go
 GOBUILD=$(GOCMD) build
@@ -26,6 +30,9 @@ BUILD_FLAGS=-v
 # Test flags
 TEST_FLAGS=-v -race -count=1
 
+# Alpine packages
+ALPINE_PACKAGES=gcc musl-dev sqlite-dev binutils binutils-gold
+
 all: check build
 
 build: check docs
@@ -34,27 +41,29 @@ build: check docs
 run: check
 	$(GORUN) $(MAIN_PATH)
 
-test: check
-	$(GOTEST) $(TEST_FLAGS) ./...
+test:
+	$(DOCKER_RUN) sh -c "apk add --no-cache $(ALPINE_PACKAGES) && go test -v ./..."
 
 clean:
 	$(GOCLEAN)
 	rm -f $(BINARY)
 	rm -rf docs/
+	rm -rf tmp/
+	docker compose down -v
 
 docs: ensure-swag
 	@echo "Generating documentation..."
 	$(SWAG) init -g $(MAIN_PATH) --parseDependency --parseInternal
 	@echo "Documentation generated successfully"
 
-lint: ensure-lint
-	@echo "Running linters..."
-	$(GOLANGCI_LINT) run
+lint:
+	@echo "Running linters in Docker..."
+	$(DOCKER_RUN) sh -c "apk add --no-cache $(ALPINE_PACKAGES) && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && golangci-lint run"
 	@echo "Linting completed"
 
 fmt:
-	@echo "Formatting code..."
-	$(GOFMT) -s -w .
+	@echo "Formatting code in Docker..."
+	$(DOCKER_RUN) sh -c "apk add --no-cache $(ALPINE_PACKAGES) && gofmt -s -w ."
 	@echo "Formatting completed"
 
 check: fmt lint test
@@ -63,13 +72,7 @@ check: fmt lint test
 ensure-swag:
 	@which swag > /dev/null || (echo "Installing swag..." && go install github.com/swaggo/swag/cmd/swag@latest)
 
-ensure-lint:
-	@which golangci-lint > /dev/null || (echo "Installing golangci-lint..." && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
-
-ensure-air:
-	@which air > /dev/null || (echo "Installing air..." && go install github.com/cosmtrek/air@latest)
-
-install-tools: ensure-swag ensure-lint ensure-air
+install-tools: ensure-swag
 	@echo "Installing git hooks..."
 	@cp scripts/pre-commit .git/hooks/pre-commit
 	@chmod +x .git/hooks/pre-commit
@@ -79,35 +82,12 @@ pre-commit: check
 	@echo "Pre-commit checks passed!"
 
 # Development targets
-dev: kill-server ensure-air docs
+dev:
 	@echo "Starting development server with hot reload..."
-	$(AIR)
+	$(DOCKER_COMPOSE) up dev
 
 dev-full: check docs dev
 	@echo "Starting development server with full checks..."
-
-# Watch for changes and regenerate docs
-watch-docs: ensure-swag
-	@echo "Watching for changes..."
-	@find . -name "*.go" | entr -r make docs
-
-# Help target
-help:
-	@echo "Available targets:"
-	@echo "  make build       - Build the binary (includes checks and docs)"
-	@echo "  make run        - Run the application (includes checks)"
-	@echo "  make dev        - Run the application with hot reload (fast)"
-	@echo "  make dev-full   - Run the application with hot reload and full checks"
-	@echo "  make test       - Run tests"
-	@echo "  make docs       - Generate documentation"
-	@echo "  make lint       - Run linters"
-	@echo "  make fmt        - Format code"
-	@echo "  make check      - Run all checks (fmt, lint, test)"
-	@echo "  make watch-docs - Watch for changes and regenerate docs"
-	@echo "  make clean      - Clean build artifacts"
-	@echo "  make install-tools - Install required tools and git hooks"
-	@echo "  make pre-commit - Run pre-commit checks"
-	@echo "  make help       - Show this help message" 
 
 # Kill any process running on the server port
 kill-server:
@@ -120,4 +100,21 @@ kill-server:
 			echo "Process still running, forcing termination..."; \
 			lsof -ti :$(SERVER_PORT) | xargs kill -9 2>/dev/null || true; \
 		fi \
-	fi 
+	fi
+
+# Help target
+help:
+	@echo "Available targets:"
+	@echo "  make build       - Build the binary (includes checks and docs)"
+	@echo "  make run        - Run the application (includes checks)"
+	@echo "  make dev        - Run the application with hot reload in Docker"
+	@echo "  make dev-full   - Run the application with hot reload and full checks"
+	@echo "  make test       - Run tests in Docker"
+	@echo "  make docs       - Generate documentation"
+	@echo "  make lint       - Run linters in Docker"
+	@echo "  make fmt        - Format code in Docker"
+	@echo "  make check      - Run all checks in Docker (fmt, lint, test)"
+	@echo "  make clean      - Clean build artifacts and stop containers"
+	@echo "  make install-tools - Install required tools and git hooks"
+	@echo "  make pre-commit - Run pre-commit checks"
+	@echo "  make help       - Show this help message"

@@ -21,8 +21,8 @@ The project is organized into the following packages:
    - Documentation is generated automatically
 
 2. Quality Control
-   - Linting with golangci-lint
-   - Pre-commit hooks for formatting and linting
+   - All checks run in Docker for consistency
+   - Pre-commit hook ensures code quality
    - Comprehensive test coverage
    - Package documentation and examples
 
@@ -31,6 +31,123 @@ The project is organized into the following packages:
    - Package documentation with godoc
    - Code examples and tests
    - Development notes (this file)
+
+## Docker Development Environment
+
+1. Container Setup
+   - Base image: golang:1.23-alpine
+   - Development dependencies installed:
+     - gcc
+     - musl-dev
+     - sqlite-dev
+     - make
+   - Development tools:
+     - air (for hot reload)
+     - swag (for API documentation)
+     - golangci-lint (for linting)
+
+2. Volume Management
+   - Source code mounted at `/app`
+   - Go cache mounted as volume for faster builds
+   - SQLite database persisted in `data/` directory
+
+3. Configuration
+   - Environment variables:
+     - GO_ENV=development/test
+     - GOMODCACHE=/go/pkg/mod
+     - GOCACHE=/go/cache
+     - CONFIG_FILE=/app/config.json
+   - Port mapping: 8080:8080
+   - Hot reload enabled through air
+
+4. Common Commands
+   ```bash
+   # Start development server
+   docker compose up dev
+
+   # Run tests
+   docker compose run test
+
+   # Run all checks (fmt, lint, test)
+   make check
+
+   # Stop all containers
+   docker compose down
+   ```
+
+## Configuration System
+
+1. File-based Configuration
+   - JSON format
+   - Default path: config.json
+   - Can be overridden with CONFIG_FILE environment variable
+   - Default values provided if no file exists
+
+2. Configuration Structure
+   ```json
+   {
+     "server": {
+       "host": "0.0.0.0",
+       "port": 8080
+     },
+     "database": {
+       "path": "data/flows.db"
+     },
+     "logging": {
+       "level": "info",
+       "format": "console"
+     }
+   }
+   ```
+
+3. Validation Rules
+   - Port must be between 1 and 65535
+   - Database path must end with .db
+   - Log level must be one of: trace, debug, info, warn, error
+   - Log format must be one of: console, json
+
+4. Directory Management
+   - Database directory created automatically
+   - Logs directory created as needed
+   - All paths relative to workspace root
+
+## Recent Updates
+
+1. Docker Support
+   - Added Docker and Docker Compose configuration
+   - Created development environment with hot reload
+   - Added test environment with development tools
+   - Fixed networking issues
+   - Containerized all development commands
+
+2. Configuration Changes
+   - Updated default host to 0.0.0.0
+   - Added configuration file support
+   - Improved validation
+   - Fixed environment variable handling
+
+3. Documentation
+   - Updated README with Docker instructions
+   - Added configuration documentation
+   - Added API documentation
+   - Updated development notes
+
+## Next Steps
+
+1. Testing
+   - Add integration tests
+   - Improve test coverage
+   - Add benchmarks
+
+2. Features
+   - Flow validation
+   - Node type plugins
+   - Flow visualization
+
+3. Documentation
+   - Add user guide
+   - Add developer guide
+   - Add architecture documentation
 
 ## Package Documentation Requirements
 
@@ -89,47 +206,6 @@ The project is organized into the following packages:
    - Missing or inconsistent annotations
    - Annotations in wrong location
    - Redundant type documentation
-
-## Recent Updates
-
-1. Documentation Generation
-   - Added Swagger annotations
-   - Created documentation server
-   - Implemented automatic generation
-   - Fixed documentation display issues
-
-2. Code Organization
-   - Centralized types in `types` package
-   - Updated imports to use centralized types
-   - Fixed import shadowing issues
-   - Added comprehensive package documentation
-
-3. Quality Control
-   - Added golangci-lint configuration
-   - Created pre-commit hooks
-   - Fixed linting issues:
-     - Package documentation
-     - Test package organization
-     - Error handling
-     - Import shadowing
-     - Code formatting
-
-## Next Steps
-
-1. Testing
-   - Add integration tests
-   - Improve test coverage
-   - Add benchmarks
-
-2. Features
-   - Flow validation
-   - Node type plugins
-   - Flow visualization
-
-3. Documentation
-   - Add user guide
-   - Add developer guide
-   - Add architecture documentation
 
 ## Logging System
 

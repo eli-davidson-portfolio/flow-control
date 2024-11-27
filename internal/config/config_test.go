@@ -21,7 +21,7 @@ func TestConfig(t *testing.T) {
 		require.NotNil(t, cfg)
 
 		// Check default values
-		require.Equal(t, "localhost", cfg.Server.Host)
+		require.Equal(t, "0.0.0.0", cfg.Server.Host)
 		require.Equal(t, 8080, cfg.Server.Port)
 		require.Equal(t, "data/flows.db", cfg.Database.Path)
 	})
