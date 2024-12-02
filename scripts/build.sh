@@ -1,70 +1,71 @@
 #!/bin/bash
-# build.sh
-#
-# Purpose:
-#   Builds the Flow Control project, handling both local and Docker-based builds.
-#   Ensures all dependencies are in place and compiles the project with proper flags.
-#
-# Usage:
-#   ./build.sh [options]
-#
-# Options:
-#   --docker     Build using Docker container (default: false)
-#   --release    Build in release mode with optimizations (default: false)
-#   --race       Enable race detection (default: false)
-#
-# Environment Variables:
-#   BUILD_FLAGS  Additional build flags to pass to go build
-#   GO_VERSION   Go version to use (default: from go.mod)
-#   CGO_ENABLED  Enable/disable cgo (default: 1)
-
 set -e
 
-# Source common functions and variables
-source "$(dirname "$0")/common/init.sh"
+# Source common functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/common/init.sh"
 
-# Build configuration
-BUILD_FLAGS=${BUILD_FLAGS:-""}
-CGO_ENABLED=${CGO_ENABLED:-1}
+generate_docs() {
+    log_info "Generating API documentation..."
+    
+    # Ensure we're in the project root
+    cd "$(git rev-parse --show-toplevel)"
+    
+    # Install swag if needed
+    "${SCRIPT_DIR}/tools/install-cli.sh"
+    
+    # Generate docs with proper working directory
+    if ! "${HOME}/go/bin/swag" init -g cmd/flowcontrol/main.go --parseDependency --parseInternal; then
+        log_error "Failed to generate documentation"
+        return 1
+    fi
+    
+    log_info "Documentation generated successfully"
+}
 
-# Parse command line arguments
-DOCKER_BUILD=false
-RELEASE_BUILD=false
-RACE_DETECTION=false
+build_app() {
+    log_info "Building application..."
+    
+    # Ensure dependencies are up to date
+    go mod download
+    go mod tidy
+    
+    # Build with CGO enabled for SQLite support
+    CGO_ENABLED=1 go build -o flow-control ./cmd/flowcontrol
+    
+    log_info "Build complete!"
+}
 
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --docker)
-            DOCKER_BUILD=true
-            shift
-            ;;
-        --release)
-            RELEASE_BUILD=true
-            shift
-            ;;
-        --race)
-            RACE_DETECTION=true
-            shift
-            ;;
-        *)
-            echo "Unknown option: $1"
-            exit 1
-            ;;
-    esac
-done
+verify_build() {
+    log_info "Verifying build..."
+    
+    if [[ ! -f "flow-control" ]]; then
+        log_error "Build verification failed: Binary not found"
+        return 1
+    fi
+    
+    log_info "Build verified successfully"
+}
 
-# Add build flags based on options
-if [[ "$RELEASE_BUILD" == "true" ]]; then
-    BUILD_FLAGS="$BUILD_FLAGS -ldflags=-w -ldflags=-s"
-fi
+main() {
+    # Generate documentation
+    if ! generate_docs; then
+        return 1
+    fi
+    
+    # Build the application
+    if ! build_app; then
+        return 1
+    fi
+    
+    # Verify the build
+    if ! verify_build; then
+        return 1
+    fi
+    
+    return 0
+}
 
-if [[ "$RACE_DETECTION" == "true" ]]; then
-    BUILD_FLAGS="$BUILD_FLAGS -race"
-fi
-
-# Execute build
-if [[ "$DOCKER_BUILD" == "true" ]]; then
-    docker-compose run --rm build
-else
-    CGO_ENABLED=$CGO_ENABLED go build $BUILD_FLAGS ./...
+# Run main function
+main "$@"
   

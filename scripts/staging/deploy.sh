@@ -58,22 +58,6 @@ update_code() {
     log_info "Code updated to $(git rev-parse HEAD)"
 }
 
-# Function to rebuild application
-rebuild_app() {
-    log_info "Rebuilding application..."
-    
-    # Build new images
-    docker compose build
-    
-    # Stop current containers
-    docker compose down
-    
-    # Start new containers
-    docker compose up -d
-    
-    log_info "Application rebuilt and restarted"
-}
-
 # Function to verify deployment
 verify_deployment() {
     log_info "Verifying deployment..."
@@ -98,7 +82,11 @@ main() {
     # Run deployment steps
     backup_database
     update_code
-    rebuild_app
+    
+    # Stop current deployment and start new one
+    log_info "Restarting application..."
+    make staging
+    
     verify_deployment
     
     log_info "Deployment completed successfully at $(date)"
@@ -111,7 +99,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         if [ -f .last_deploy ]; then
             log_info "Rolling back to $(cat .last_deploy)"
             git reset --hard "$(cat .last_deploy)"
-            rebuild_app
+            make staging
         fi
         exit 1
     fi

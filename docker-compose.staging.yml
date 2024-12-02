@@ -1,0 +1,63 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    env_file: .env.staging
+    environment:
+      - GO_ENV=staging
+      - CONFIG_FILE=/app/config.json
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=${APP_PORT:-8080}
+      - LOG_LEVEL=debug
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config.json:/app/config.json
+    network_mode: host
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  webhook:
+    image: almir/webhook
+    volumes:
+      - ./config/hooks.json:/etc/webhook/hooks.json
+      - ./scripts:/app/scripts
+    environment:
+      - PORT=${WEBHOOK_PORT:-9000}
+    command: -hooks /etc/webhook/hooks.json -verbose -port ${WEBHOOK_PORT:-9000}
+    network_mode: host
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/hooks"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  flow-network:
+    name: flow-network
+    external: true 

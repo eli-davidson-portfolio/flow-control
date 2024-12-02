@@ -60,3 +60,4 @@ if [[ "$DOCKER_LINT" == "true" ]]; then
     docker-compose run --rm lint
 else
     golangci-lint run --config "$CONFIG_FILE" $LINT_FLAGS ./...
+fi
