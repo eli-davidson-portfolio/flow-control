@@ -1,4 +1,4 @@
-.PHONY: all build run test clean docs lint fmt check install-tools pre-commit dev docker-test docker-check
+.PHONY: all build run test clean docs lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging
 
 # Server settings
 SERVER_PORT=8080
@@ -76,6 +76,16 @@ docker-check:
 system-check: docker-check check
 	@echo "Full system check complete!"
 
+# Staging setup
+setup-staging:
+	echo "Setting up staging environment..."
+	chmod +x scripts/setup/setup-env.sh scripts/common/init.sh
+	bash -x scripts/setup/setup-env.sh \
+		--env staging \
+		--user deploy \
+		--dir /opt/flow-control \
+		--branch staging
+
 help:
 	@echo "Available targets:"
 	@echo "  make build       - Build the binary"
@@ -92,4 +102,5 @@ help:
 	@echo "  make docker-test - Run Docker recovery tests"
 	@echo "  make docker-check - Quick Docker environment check"
 	@echo "  make system-check - Full system check including Docker"
+	@echo "  make setup-staging - Set up the staging environment"
 	@echo "  make help       - Show this help message"

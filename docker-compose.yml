@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   dev:
-    image: golang:1.22.9-bullseye
+    image: golang:1.22.1-bullseye
     working_dir: /app
     volumes:
       - .:/app

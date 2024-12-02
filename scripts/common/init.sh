@@ -149,13 +149,13 @@ get_abs_path() {
     fi
 }
 
-# Function to cleanup temporary files
+# Function to cleanup temporary files older than specified days
 cleanup_temp() {
-    local dir="${1:-$FLOW_CACHE_DIR}"
-    local max_age=${2:-"7d"}
+    local dir="$1"
+    local max_age="$2"
     
     if [[ -d "$dir" ]]; then
-        find "$dir" -type f -mtime "+${max_age}" -delete
+        find "$dir" -type f -mtime +7 -delete
     fi
 }
 
@@ -169,7 +169,7 @@ if command_exists go; then
 fi
 
 # Cleanup old cache files on startup (files older than 7 days)
-cleanup_temp "$FLOW_CACHE_DIR" "7d"
+cleanup_temp "$FLOW_CACHE_DIR" "7"
 
 # Export environment variables
 export FLOW_ROOT_DIR
