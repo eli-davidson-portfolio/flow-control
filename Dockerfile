@@ -10,7 +10,6 @@ RUN go install github.com/swaggo/swag/cmd/swag@latest
 COPY go.mod go.sum ./
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
-COPY pkg/ ./pkg/
 
 # Generate documentation
 RUN cd /app && \
