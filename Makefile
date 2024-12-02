@@ -47,42 +47,57 @@ ensure-ports:
 			fi; \
 		fi'
 
+# Capture logs before cleanup
+capture-logs:
+	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
+		LOG_DIR="logs/deploy-$$(date +%Y%m%d_%H%M%S)" && \
+		mkdir -p $$LOG_DIR && \
+		log_info "Capturing logs to $$LOG_DIR" && \
+		echo "App Logs:" > "$$LOG_DIR/app.log" && \
+		docker logs flow-control-app-1 >> "$$LOG_DIR/app.log" 2>&1 || true && \
+		echo "Webhook Logs:" > "$$LOG_DIR/webhook.log" && \
+		docker logs flow-control-webhook-1 >> "$$LOG_DIR/webhook.log" 2>&1 || true && \
+		docker compose -f docker-compose.staging.yml ps > "$$LOG_DIR/containers.log" 2>&1 || true && \
+		log_info "Logs captured to $$LOG_DIR"'
+
 # Verify staging deployment
 verify-staging:
 	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
 		log_info "Verifying deployment..." && \
 		echo "Waiting for services to initialize..." && \
 		sleep 5 && \
-		HOST_IP=$$(hostname -I | cut -d" " -f1) && \
 		MAX_RETRIES=12 && \
 		RETRY_COUNT=0 && \
+		CONSECUTIVE_SUCCESSES=0 && \
+		REQUIRED_SUCCESSES=3 && \
 		while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do \
-			if curl -s http://localhost:8080/health > /dev/null; then \
-				if curl -s http://localhost:9001/hooks > /dev/null; then \
+			APP_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health || echo "failed") && \
+			WEBHOOK_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9001/hooks || echo "failed") && \
+			if [ "$$APP_HEALTH" = "200" ] && [ "$$WEBHOOK_HEALTH" = "200" ]; then \
+				CONSECUTIVE_SUCCESSES=$$((CONSECUTIVE_SUCCESSES + 1)); \
+				if [ $$CONSECUTIVE_SUCCESSES -ge $$REQUIRED_SUCCESSES ]; then \
 					log_info "Deployment verified successfully!" && \
 					echo -e "\nServices are available at:" && \
-					echo -e "  • App: http://$$HOST_IP:8080" && \
-					echo -e "  • Webhook: http://$$HOST_IP:9001" && \
+					echo -e "  • App: http://localhost:8080" && \
+					echo -e "  • Webhook: http://localhost:9001" && \
 					echo -e "\nHealth check endpoints:" && \
-					echo -e "  • App: http://$$HOST_IP:8080/health" && \
-					echo -e "  • Webhook: http://$$HOST_IP:9001/hooks" && \
+					echo -e "  • App: http://localhost:8080/health ($$APP_HEALTH)" && \
+					echo -e "  • Webhook: http://localhost:9001/hooks ($$WEBHOOK_HEALTH)" && \
 					exit 0; \
 				fi; \
+				echo -n "+"; \
+			else \
+				CONSECUTIVE_SUCCESSES=0; \
+				log_debug "Health check status - App: $$APP_HEALTH, Webhook: $$WEBHOOK_HEALTH"; \
+				echo -n "."; \
 			fi; \
 			RETRY_COUNT=$$((RETRY_COUNT + 1)); \
-			echo -n "."; \
 			sleep 5; \
 		done; \
 		log_error "Deployment verification failed" && \
-		echo "Checking container logs..." && \
-		docker logs flow-control-app-1 && \
-		docker logs flow-control-webhook-1 && \
-		log_warning "Attempting force cleanup and retry..." && \
-		$(MAKE) clean-env-force && \
-		$(MAKE) staging || { \
-			log_error "Final attempt failed after force cleanup"; \
-			exit 1; \
-		}'
+		$(MAKE) capture-logs && \
+		log_warning "Services failed to stabilize. Check logs in logs/deploy-* directory" && \
+		exit 1'
 
 staging: clean-env ensure-ports
 	@bash -c "source $(LIB_DIR)/env/utils.sh && \
@@ -92,16 +107,19 @@ staging: clean-env ensure-ports
 			log_error 'Failed to pull images' && exit 1; \
 		fi && \
 		log_info 'Starting services...' && \
-		if ! docker compose -f docker-compose.staging.yml up -d; then \
+		if ! docker compose -f docker-compose.staging.yml up -d --build; then \
 			log_error 'Failed to start services' && \
-			docker compose -f docker-compose.staging.yml logs && \
+			$(MAKE) capture-logs && \
 			exit 1; \
 		fi && \
 		log_info 'Services started, waiting for initialization...' && \
 		sleep 5 && \
 		docker compose -f docker-compose.staging.yml ps && \
 		log_info 'Staging deployment complete' && \
-		$(MAKE) verify-staging"
+		if ! $(MAKE) verify-staging; then \
+			log_warning "Verification failed, but services may still be running. Check logs and try again if needed."; \
+			exit 1; \
+		fi"
 
 setup-staging: staging
 	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
@@ -129,10 +147,16 @@ setup-staging: staging
 logs:
 	@docker compose -f docker-compose.staging.yml logs -f
 
-dev: clean-env
+dev: clean-env ensure-ports
 	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
-		log_info "Starting development server" && \
-		docker compose up dev'
+		log_info "Starting development environment" && \
+		if ! docker compose -f docker-compose.yml up -d --build; then \
+			log_error "Failed to start services" && \
+			$(MAKE) capture-logs && \
+			exit 1; \
+		fi && \
+		log_info "Development environment started" && \
+		docker compose ps'
 
 build:
 	@echo "Building application..."
