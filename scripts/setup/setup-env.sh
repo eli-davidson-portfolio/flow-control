@@ -87,13 +87,58 @@ check_system_requirements() {
     fi
 }
 
+# Install Docker and dependencies
+install_docker() {
+    log_info "Installing Docker and dependencies..."
+    
+    # Install prerequisites
+    apt-get update
+    apt-get install -y \
+        apt-transport-https \
+        ca-certificates \
+        curl \
+        gnupg \
+        lsb-release
+
+    # Add Docker's official GPG key
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/$(lsb_release -is | tr '[:upper:]' '[:lower:]')/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    chmod a+r /etc/apt/keyrings/docker.gpg
+
+    # Add the repository to Apt sources
+    echo \
+        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(lsb_release -is | tr '[:upper:]' '[:lower:]') \
+        $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+    # Install Docker
+    apt-get update
+    apt-get install -y \
+        docker-ce \
+        docker-ce-cli \
+        containerd.io \
+        docker-buildx-plugin \
+        docker-compose-plugin
+
+    # Start and enable Docker
+    systemctl enable docker
+    systemctl start docker
+
+    log_info "Docker installed successfully"
+}
+
 # Install required packages
 install_packages() {
     log_info "Installing required packages..."
     
+    # First, install Docker if not present
+    if ! command -v docker &> /dev/null; then
+        install_docker
+    else
+        log_info "Docker already installed"
+    fi
+    
+    # Install other required packages
     local packages=(
-        docker.io
-        docker-compose
         git
         jq
         curl
