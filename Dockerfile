@@ -17,11 +17,10 @@ RUN go mod download
 COPY . .
 
 # Generate API documentation
-RUN export PATH="/go/bin:${PATH}" && \
-    cd /app && \
+RUN cd /app && \
     go mod download && \
     go mod tidy && \
-    swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal
+    /go/bin/swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal
 
 # Build the application
 RUN go build -o flow-control ./cmd/flowcontrol
@@ -48,7 +47,7 @@ RUN apk add --no-cache gcc musl-dev sqlite-dev git curl && \
     go install github.com/swaggo/swag/cmd/swag@latest && \
     go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
-# Add Go binaries to PATH
+# Add Go binaries to PATH (already included in base image)
 ENV PATH="/go/bin:${PATH}"
 
 COPY . .
