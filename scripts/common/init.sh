@@ -25,11 +25,11 @@
 
 set -e
 
-# Determine script locations
+# Get script directories
 FLOW_SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-FLOW_ROOT_DIR="$(cd "$FLOW_SCRIPTS_DIR/.." && pwd)"
+FLOW_ROOT_DIR="$(cd "${FLOW_SCRIPTS_DIR}/.." && pwd)"
 
-# Set up directory structure
+# Set up directories
 FLOW_CACHE_DIR="${HOME}/.cache/flow-control"
 FLOW_LOG_DIR="${FLOW_ROOT_DIR}/logs"
 FLOW_BUILD_DIR="${FLOW_ROOT_DIR}/build"
@@ -67,89 +67,14 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Function to check if we're running in CI
-is_ci() {
-    [[ -n "${CI:-}" ]]
-}
-
-# Function to check if we're running in Docker
-is_docker() {
-    [[ -f /.dockerenv ]] || grep -q docker /proc/1/cgroup 2>/dev/null
-}
-
-# Function to get the Go version from go.mod
+# Function to get Go version from go.mod
 get_go_version() {
     if [[ -f "$GO_MOD_FILE" ]]; then
-        grep "^go " "$GO_MOD_FILE" | cut -d' ' -f2
-    else
-        echo "1.22.9" # Default version if go.mod doesn't exist
+        grep '^go ' "$GO_MOD_FILE" | cut -d' ' -f2
     fi
 }
 
-# Function to check if Docker is available
-check_docker() {
-    if ! command_exists docker; then
-        log_error "Docker is not installed"
-        return 1
-    fi
-    
-    if ! docker info >/dev/null 2>&1; then
-        log_error "Docker daemon is not running"
-        return 1
-    fi
-    
-    return 0
-}
-
-# Function to check if Docker Compose is available
-check_docker_compose() {
-    if command_exists docker-compose; then
-        return 0
-    elif docker compose version >/dev/null 2>&1; then
-        return 0
-    else
-        log_error "Docker Compose is not installed"
-        return 1
-    fi
-}
-
-# Function to run a command with retries
-retry() {
-    local retries=${1:-3}
-    local delay=${2:-5}
-    shift 2
-    
-    local count=0
-    until "$@"; do
-        exit=$?
-        count=$((count + 1))
-        
-        if [[ $count -lt $retries ]]; then
-            log_warn "Command failed (attempt $count/$retries). Retrying in ${delay}s..."
-            sleep "$delay"
-        else
-            log_error "Command failed after $count attempts"
-            return $exit
-        fi
-    done
-    return 0
-}
-
-# Function to get absolute path
-get_abs_path() {
-    local path="$1"
-    if [[ -d "$path" ]]; then
-        (cd "$path" && pwd)
-    elif [[ -f "$path" ]]; then
-        if [[ $path == /* ]]; then
-            echo "$path"
-        else
-            echo "$PWD/${path#./}"
-        fi
-    fi
-}
-
-# Function to cleanup temporary files older than specified days
+# Function to cleanup temporary files
 cleanup_temp() {
     local dir="$1"
     local max_age="$2"
@@ -158,18 +83,6 @@ cleanup_temp() {
         find "$dir" -type f -mtime +7 -delete
     fi
 }
-
-# Ensure we're using the correct Go version
-if command_exists go; then
-    GO_VERSION=$(get_go_version)
-    CURRENT_GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
-    if [[ "$CURRENT_GO_VERSION" != "$GO_VERSION" ]]; then
-        log_warn "Current Go version ($CURRENT_GO_VERSION) doesn't match go.mod version ($GO_VERSION)"
-    fi
-fi
-
-# Cleanup old cache files on startup (files older than 7 days)
-cleanup_temp "$FLOW_CACHE_DIR" "7"
 
 # Export environment variables
 export FLOW_ROOT_DIR
@@ -182,5 +95,19 @@ export FLOW_DOCS_DIR
 export DOCKER_BUILDKIT
 export COMPOSE_DOCKER_CLI_BUILD
 
-# Log initialization complete in debug mode
-log_debug "Flow Control environment initialized at $FLOW_ROOT_DIR" 
+# Initialize environment
+log_info "Initializing Flow Control environment..."
+
+# Check Go version if go is installed
+if command_exists go; then
+    GO_VERSION=$(get_go_version)
+    CURRENT_GO_VERSION=$(go version | awk '{print $3}' | sed s/go//)
+    if [[ "$GO_VERSION" != "$CURRENT_GO_VERSION" ]]; then
+        log_warn "Go version mismatch: required $GO_VERSION, found $CURRENT_GO_VERSION"
+    fi
+fi
+
+# Cleanup old cache files on startup (files older than 7 days)
+cleanup_temp "$FLOW_CACHE_DIR" "7"
+
+log_info "Flow Control environment initialized at $FLOW_ROOT_DIR" 
