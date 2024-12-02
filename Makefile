@@ -8,24 +8,58 @@ PROGRESS_FUNCTIONS := $(shell bash -c ". $(PROGRESS_SCRIPT) && declare -F | cut 
 # Environment settings
 INSTALL_DIR := $(shell pwd)
 
-.PHONY: all build run test clean lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging verify-staging
+.PHONY: all build run test clean lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging verify-staging clean-env clean-env-force
 
 all: check build
+
+# Helper target for force cleanup
+clean-env-force:
+	@echo "Performing force cleanup..."
+	@# Stop all running containers
+	@docker stop $$(docker ps -aq) >/dev/null 2>&1 || true
+	@# Remove all containers
+	@docker rm -f $$(docker ps -aq) >/dev/null 2>&1 || true
+	@# Remove all images
+	@docker rmi -f $$(docker images -aq) >/dev/null 2>&1 || true
+	@# Remove all volumes
+	@docker volume rm $$(docker volume ls -q) >/dev/null 2>&1 || true
+	@# Remove all networks
+	@docker network prune -f >/dev/null 2>&1 || true
+	@# Remove all build cache
+	@docker builder prune -af >/dev/null 2>&1 || true
+	@echo "Force cleanup complete"
 
 # Helper target to ensure clean environment
 clean-env:
 	@echo "Cleaning up environment..."
+	@# Stop and remove all containers first
 	@docker compose down -v >/dev/null 2>&1 || true
 	@docker compose -f docker-compose.yml -f docker-compose.staging.yml down -v >/dev/null 2>&1 || true
 	@docker rm -f flow-control-app-1 flow-control-webhook-1 2>/dev/null || true
+	@# Remove and recreate network
 	@docker network rm flow-network 2>/dev/null || true
 	@docker network create flow-network 2>/dev/null || true
-	@# Force kill any process using our ports
+	@# Kill any processes using our ports (try multiple methods)
 	@echo "Releasing ports..."
+	@# Method 1: Using ss
 	@(ss -lptn 'sport = :8080' | grep -oP '(?<=pid=).*?(?=,|$)' | xargs kill -9) >/dev/null 2>&1 || true
 	@(ss -lptn 'sport = :9000' | grep -oP '(?<=pid=).*?(?=,|$)' | xargs kill -9) >/dev/null 2>&1 || true
+	@# Method 2: Using netstat
+	@(netstat -tlpn 2>/dev/null | grep ':8080' | awk '{print $7}' | cut -d'/' -f1 | xargs kill -9) >/dev/null 2>&1 || true
+	@(netstat -tlpn 2>/dev/null | grep ':9000' | awk '{print $7}' | cut -d'/' -f1 | xargs kill -9) >/dev/null 2>&1 || true
+	@# Method 3: Using lsof
+	@(lsof -ti:8080 | xargs kill -9) >/dev/null 2>&1 || true
+	@(lsof -ti:9000 | xargs kill -9) >/dev/null 2>&1 || true
+	@# Method 4: Using fuser
+	@(fuser -k 8080/tcp) >/dev/null 2>&1 || true
+	@(fuser -k 9000/tcp) >/dev/null 2>&1 || true
 	@# Give the system time to fully release the ports
 	@sleep 5
+	@# Verify ports are free
+	@if netstat -ln | grep -q ':8080 \|:9000 '; then \
+		echo "Failed to free ports. Please check manually."; \
+		exit 1; \
+	fi
 
 # Verify staging deployment
 verify-staging:
@@ -57,7 +91,12 @@ verify-staging:
 		echo 'Checking container logs...' && \
 		docker logs flow-control-app-1 && \
 		docker logs flow-control-webhook-1 && \
-		exit 1"
+		status_msg 'Attempting force cleanup and retry...' 'warning' && \
+		$(MAKE) clean-env-force && \
+		$(MAKE) staging || { \
+			status_msg 'Final attempt failed after force cleanup' 'error'; \
+			exit 1; \
+		}"
 
 staging: clean-env
 	@bash -c ". $(PROGRESS_SCRIPT) && \
