@@ -27,39 +27,48 @@ clean-env-force:
 	@docker network prune -f >/dev/null 2>&1 || true
 	@# Remove all build cache
 	@docker builder prune -af >/dev/null 2>&1 || true
+	@# Kill ALL Docker processes
+	@pkill -9 docker >/dev/null 2>&1 || true
+	@systemctl restart docker >/dev/null 2>&1 || true
+	@sleep 10  # Give Docker time to restart
 	@echo "Force cleanup complete"
 
 # Helper target to ensure clean environment
 clean-env:
-	@echo "Cleaning up environment..."
-	@# Stop and remove all containers first
-	@docker compose down -v >/dev/null 2>&1 || true
-	@docker compose -f docker-compose.yml -f docker-compose.staging.yml down -v >/dev/null 2>&1 || true
-	@docker rm -f flow-control-app-1 flow-control-webhook-1 2>/dev/null || true
-	@# Remove and recreate network
-	@docker network rm flow-network 2>/dev/null || true
-	@docker network create flow-network 2>/dev/null || true
-	@# Kill any processes using our ports (try multiple methods)
-	@echo "Releasing ports..."
-	@# Method 1: Using ss
-	@(ss -lptn 'sport = :8080' | grep -oP '(?<=pid=).*?(?=,|$)' | xargs kill -9) >/dev/null 2>&1 || true
-	@(ss -lptn 'sport = :9000' | grep -oP '(?<=pid=).*?(?=,|$)' | xargs kill -9) >/dev/null 2>&1 || true
-	@# Method 2: Using netstat
-	@(netstat -tlpn 2>/dev/null | grep ':8080' | awk '{print $7}' | cut -d'/' -f1 | xargs kill -9) >/dev/null 2>&1 || true
-	@(netstat -tlpn 2>/dev/null | grep ':9000' | awk '{print $7}' | cut -d'/' -f1 | xargs kill -9) >/dev/null 2>&1 || true
-	@# Method 3: Using lsof
-	@(lsof -ti:8080 | xargs kill -9) >/dev/null 2>&1 || true
-	@(lsof -ti:9000 | xargs kill -9) >/dev/null 2>&1 || true
-	@# Method 4: Using fuser
-	@(fuser -k 8080/tcp) >/dev/null 2>&1 || true
-	@(fuser -k 9000/tcp) >/dev/null 2>&1 || true
-	@# Give the system time to fully release the ports
-	@sleep 5
-	@# Verify ports are free
-	@if netstat -ln | grep -q ':8080 \|:9000 '; then \
-		echo "Failed to free ports. Please check manually."; \
-		exit 1; \
-	fi
+	@bash -c ". $(PROGRESS_SCRIPT) && \
+		echo 'Cleaning up environment...' && \
+		# Stop and remove all containers first \
+		docker compose down -v >/dev/null 2>&1 || true && \
+		docker compose -f docker-compose.yml -f docker-compose.staging.yml down -v >/dev/null 2>&1 || true && \
+		docker rm -f flow-control-app-1 flow-control-webhook-1 2>/dev/null || true && \
+		# Remove and recreate network \
+		docker network rm flow-network 2>/dev/null || true && \
+		docker network create flow-network 2>/dev/null || true && \
+		# Kill any processes using our ports (try multiple methods) \
+		status_msg 'Releasing ports...' 'info' && \
+		# Method 1: Using ss \
+		(ss -lptn 'sport = :8080' | grep -oP '(?<=pid=).*?(?=,|$)' | xargs kill -9) >/dev/null 2>&1 || true && \
+		(ss -lptn 'sport = :9000' | grep -oP '(?<=pid=).*?(?=,|$)' | xargs kill -9) >/dev/null 2>&1 || true && \
+		# Method 2: Using netstat \
+		(netstat -tlpn 2>/dev/null | grep ':8080' | awk '{print $$7}' | cut -d'/' -f1 | xargs kill -9) >/dev/null 2>&1 || true && \
+		(netstat -tlpn 2>/dev/null | grep ':9000' | awk '{print $$7}' | cut -d'/' -f1 | xargs kill -9) >/dev/null 2>&1 || true && \
+		# Method 3: Using lsof \
+		(lsof -ti:8080 | xargs kill -9) >/dev/null 2>&1 || true && \
+		(lsof -ti:9000 | xargs kill -9) >/dev/null 2>&1 || true && \
+		# Method 4: Using fuser \
+		(fuser -k 8080/tcp) >/dev/null 2>&1 || true && \
+		(fuser -k 9000/tcp) >/dev/null 2>&1 || true && \
+		# Give the system time to fully release the ports \
+		sleep 5 && \
+		# Verify ports are free \
+		if netstat -ln | grep -q ':8080 \|:9000 '; then \
+			status_msg 'Standard cleanup failed to free ports, attempting force cleanup...' 'warning' && \
+			$(MAKE) clean-env-force && \
+			if netstat -ln | grep -q ':8080 \|:9000 '; then \
+				status_msg 'Failed to free ports even after force cleanup' 'error' && \
+				exit 1; \
+			fi; \
+		fi"
 
 # Verify staging deployment
 verify-staging:
