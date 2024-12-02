@@ -75,9 +75,26 @@ verify-staging:
 			$(MAKE) capture-logs && \
 			exit 1; \
 		fi && \
-		log_info "Containers are running. Checking health endpoints..." && \
+		log_info "Containers are running. Waiting for ports to be ready..." && \
+		MAX_PORT_RETRIES=6 && \
+		PORT_RETRY=0 && \
+		while [ $$PORT_RETRY -lt $$MAX_PORT_RETRIES ]; do \
+			if nc -z localhost 8080 && nc -z localhost 9001; then \
+				break; \
+			fi; \
+			echo "Waiting for ports to be ready ($$((PORT_RETRY + 1))/$$MAX_PORT_RETRIES)..." && \
+			PORT_RETRY=$$((PORT_RETRY + 1)); \
+			[ $$PORT_RETRY -lt $$MAX_PORT_RETRIES ] && sleep 5; \
+		done && \
+		if ! nc -z localhost 8080 || ! nc -z localhost 9001; then \
+			log_error "Ports not ready after waiting" && \
+			$(MAKE) capture-logs && \
+			exit 1; \
+		fi && \
+		log_info "Ports are ready. Checking health endpoints..." && \
+		sleep 2 && \
 		APP_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health || echo "failed") && \
-			WEBHOOK_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9001/hooks || echo "failed") && \
+		WEBHOOK_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9001/hooks || echo "failed") && \
 		echo "Health check status:" && \
 		echo "  • App: $$APP_HEALTH" && \
 		echo "  • Webhook: $$WEBHOOK_HEALTH" && \
