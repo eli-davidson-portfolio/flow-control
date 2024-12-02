@@ -47,52 +47,28 @@ RUN CGO_ENABLED=1 go build \
     -ldflags="-w -s" \
     -o flow-control ./cmd/flowcontrol
 
-# Development stage with hot reload
-FROM golang:1.22.1-alpine AS dev
-
-WORKDIR /app
-
-# Install development tools
-RUN apk add --no-cache git && \
-    go install github.com/cosmtrek/air@latest
-
-# Copy source code and generated docs
-COPY . .
-COPY --from=docs /app/docs/ ./docs/
-
-CMD ["air"]
-
-# Test stage
-FROM golang:1.22.1-alpine AS test
-
-WORKDIR /app
-
-# Install build dependencies and tools
-RUN apk add --no-cache gcc musl-dev sqlite-dev git curl && \
-    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-
-# Copy source code and generated docs
-COPY . .
-COPY --from=docs /app/docs/ ./docs/
-
-CMD ["go", "test", "./..."]
-
 # Production stage
 FROM alpine:latest AS production
 
 WORKDIR /app
 
 # Install runtime dependencies
-RUN apk add --no-cache sqlite-dev
+RUN apk add --no-cache sqlite-dev curl
 
 # Copy binary and documentation
 COPY --from=builder /app/flow-control .
 COPY --from=docs /app/docs ./docs
 COPY web/ web/
 
-# Create necessary directories
-RUN mkdir -p data logs
+# Create necessary directories with proper permissions
+RUN mkdir -p data logs && \
+    chmod 755 data logs && \
+    chown -R nobody:nobody data logs
 
-EXPOSE 8080
+# Switch to non-root user
+USER nobody
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
 
 CMD ["./flow-control"] 
