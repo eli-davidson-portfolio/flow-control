@@ -486,7 +486,6 @@ main() {
     setup_user "$USER" || exit 1
     setup_directories "$INSTALL_DIR" || exit 1
     setup_ssh "$INSTALL_DIR" "$ENV" || exit 1
-    setup_env_file "$INSTALL_DIR" "$ENV" || exit 1
     [[ -n "$DOMAIN" ]] && setup_nginx "$DOMAIN" "$APP_PORT"
     setup_webhook "$INSTALL_DIR" "$WEBHOOK_PORT" || exit 1
     setup_docker || exit 1
@@ -505,6 +504,9 @@ main() {
     
     # Continue with Git setup
     setup_git "$INSTALL_DIR" "$REPO" "$BRANCH" || exit 1
+    
+    # Create environment file after Git setup
+    setup_env_file "$INSTALL_DIR" "$ENV" || exit 1
     
     log_info "Setup completed successfully!"
     
