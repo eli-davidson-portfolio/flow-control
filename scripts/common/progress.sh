@@ -17,14 +17,6 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m'
 
-# Export functions for use in Makefile
-export -f show_logo
-export -f spinner
-export -f progress_bar
-export -f status_msg
-export -f complete_task
-export -f matrix_rain
-
 # ShadowLab ASCII art
 show_logo() {
     echo -e "${PURPLE}"
@@ -60,6 +52,7 @@ progress_bar() {
     local width=50
     local progress=0
     local step=$((100/$width))
+    local sleep_duration=$(awk "BEGIN {print $duration/100}")
     
     echo -ne "\n"
     while [ $progress -le 100 ]; do
@@ -73,7 +66,7 @@ progress_bar() {
         done
         echo -ne "${NC}] ${progress}%"
         progress=$((progress+step))
-        sleep $(bc -l <<< "$duration/100")
+        sleep 0.05
     done
     echo -ne "\n"
 }
@@ -121,6 +114,14 @@ matrix_rain() {
     done
     echo
 }
+
+# Define all functions before exporting
+declare -fx show_logo
+declare -fx spinner
+declare -fx progress_bar
+declare -fx status_msg
+declare -fx complete_task
+declare -fx matrix_rain
 
 # If script is being run directly, show demo
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
