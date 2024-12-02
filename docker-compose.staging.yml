@@ -56,8 +56,3 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-networks:
-  flow-network:
-    name: flow-network
-    external: true 

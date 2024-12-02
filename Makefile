@@ -86,9 +86,20 @@ verify-staging:
 
 staging: clean-env ensure-ports
 	@bash -c "source $(LIB_DIR)/env/utils.sh && \
+		source $(LIB_DIR)/docker/manager.sh && \
 		log_info 'Deploying to staging environment' && \
-		docker compose -f docker-compose.staging.yml pull && \
-		docker compose -f docker-compose.staging.yml up -d && \
+		if ! docker compose -f docker-compose.staging.yml pull; then \
+			log_error 'Failed to pull images' && exit 1; \
+		fi && \
+		log_info 'Starting services...' && \
+		if ! docker compose -f docker-compose.staging.yml up -d; then \
+			log_error 'Failed to start services' && \
+			docker compose -f docker-compose.staging.yml logs && \
+			exit 1; \
+		fi && \
+		log_info 'Services started, waiting for initialization...' && \
+		sleep 5 && \
+		docker compose -f docker-compose.staging.yml ps && \
 		log_info 'Staging deployment complete' && \
 		$(MAKE) verify-staging"
 
