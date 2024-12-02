@@ -417,7 +417,12 @@ setup_git() {
     else
         # Existing repository
         cd "$base_dir"
-        git remote set-url origin "$repo" || true
+        # Check if remote exists, add if it doesn't
+        if ! git remote | grep -q "^origin$"; then
+            git remote add origin "$repo"
+        else
+            git remote set-url origin "$repo"
+        fi
         git fetch origin || {
             log_error "Failed to fetch from repository. Please check your SSH access and try again."
             return 1
