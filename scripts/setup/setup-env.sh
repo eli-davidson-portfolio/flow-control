@@ -241,12 +241,27 @@ setup_env_file() {
     log_info "Creating environment file..."
     
     cat > "$base_dir/.env.$env" << EOF
+# Flow Control Environment Configuration
+# Environment: $env
+# Generated: $(date)
+
+# Application Settings
 ENVIRONMENT=$env
 APP_PORT=$APP_PORT
 WEBHOOK_PORT=$WEBHOOK_PORT
 GO_ENV=$env
-CONFIG_FILE=/app/config.json
-CGO_ENABLED=1
+
+# Docker Settings
+DOCKER_BUILDKIT=1
+COMPOSE_DOCKER_CLI_BUILD=1
+
+# Database Settings
+DB_PATH=/app/data/flow.db
+
+# Logging
+LOG_LEVEL=info
+LOG_FORMAT=json
+LOG_FILE=/app/logs/flow.log
 EOF
     
     chmod 600 "$base_dir/.env.$env"
