@@ -42,3 +42,29 @@ const (
 	// PortDirectionOutput represents an output port that sends messages
 	PortDirectionOutput PortDirection = "output"
 )
+
+// QualityOfService defines the quality of service level for a port
+type QualityOfService int
+
+const (
+	// QoSBestEffort provides no guarantees about message delivery
+	QoSBestEffort QualityOfService = iota
+	// QoSAtLeastOnce ensures messages are delivered at least once
+	QoSAtLeastOnce
+	// QoSExactlyOnce ensures messages are delivered exactly once
+	QoSExactlyOnce
+)
+
+// String returns the string representation of QualityOfService
+func (q QualityOfService) String() string {
+	switch q {
+	case QoSBestEffort:
+		return "best-effort"
+	case QoSAtLeastOnce:
+		return "at-least-once"
+	case QoSExactlyOnce:
+		return "exactly-once"
+	default:
+		return "unknown"
+	}
+}
