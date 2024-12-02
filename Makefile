@@ -5,13 +5,58 @@ SHELL := /bin/bash
 PROGRESS_SCRIPT := scripts/common/progress.sh
 PROGRESS_FUNCTIONS := $(shell bash -c ". $(PROGRESS_SCRIPT) && declare -F | cut -d' ' -f3")
 
-# Application ports
-APP_PORT := 8080
-WEBHOOK_PORT := 9000
-
 .PHONY: all build run test clean lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging
 
 all: check build
+
+# Helper target to ensure clean environment
+clean-env:
+	@echo "Cleaning up environment..."
+	@docker compose down -v >/dev/null 2>&1 || true
+	@docker compose -f docker-compose.yml -f docker-compose.staging.yml down -v >/dev/null 2>&1 || true
+	@docker network create flow-network 2>/dev/null || true
+	@sleep 2  # Give Docker time to cleanup
+
+staging: clean-env
+	@bash -c ". $(PROGRESS_SCRIPT) && \
+		show_logo && \
+		status_msg 'Deploying to staging environment' 'info' && \
+		docker compose -f docker-compose.staging.yml up -d && \
+		status_msg 'Staging deployment complete' 'success'"
+
+setup-staging: clean-env
+	@bash -c ". $(PROGRESS_SCRIPT) && \
+		show_logo && \
+		status_msg 'Initializing staging environment setup' 'info' && \
+		if [ ! -f scripts/setup/setup-env.sh ]; then \
+			status_msg 'setup-env.sh script not found' 'error'; \
+			exit 1; \
+		fi; \
+		if [ ! -f scripts/common/init.sh ]; then \
+			status_msg 'init.sh script not found' 'error'; \
+			exit 1; \
+		fi; \
+		chmod +x scripts/setup/setup-env.sh scripts/common/init.sh && \
+		status_msg 'Running setup script' 'info' && \
+		bash -x scripts/setup/setup-env.sh \
+			--env staging \
+			--user deploy \
+			--dir /opt/flow-control \
+			--branch staging \
+			--skip-memory-check && \
+		$(MAKE) staging || { \
+			status_msg 'Setup script failed' 'error'; \
+			exit 1; \
+		}"
+
+logs:
+	@docker compose -f docker-compose.staging.yml logs -f
+
+dev: clean-env
+	@bash -c ". $(PROGRESS_SCRIPT) && \
+		show_logo && \
+		status_msg 'Starting development server' 'info' && \
+		docker compose up dev"
 
 build:
 	@echo "Building application..."
@@ -82,57 +127,22 @@ pre-commit: check
 	@bash -c ". $(PROGRESS_SCRIPT) && \
 		status_msg 'Pre-commit checks passed!' 'success'"
 
-dev:
+docker-test:
+	@echo "Running Docker tests..."
 	@bash -c ". $(PROGRESS_SCRIPT) && \
 		show_logo && \
-		status_msg 'Starting development server' 'info' && \
-		docker compose up dev"
+		status_msg 'Initializing Docker test suite' 'info' && \
+		(docker compose run --rm test go test ./... & progress_bar 20) && \
+		complete_task 'Docker tests complete!'"
 
-# Helper target to free ports
-free-ports:
-	@echo "Freeing required ports..."
-	@for port in $(APP_PORT) $(WEBHOOK_PORT); do \
-		pid=$$(netstat -nlp 2>/dev/null | grep ":$$port" | awk '{print $$7}' | cut -d'/' -f1); \
-		if [ ! -z "$$pid" ]; then \
-			echo "Killing process $$pid using port $$port"; \
-			kill -9 $$pid 2>/dev/null || true; \
-		fi; \
-	done
-	@sleep 2  # Give processes time to release ports
-
-staging: free-ports
+docker-check:
+	@echo "Running Docker checks..."
 	@bash -c ". $(PROGRESS_SCRIPT) && \
-		show_logo && \
-		status_msg 'Deploying to staging environment' 'info' && \
-			docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d && \
-		status_msg 'Staging deployment complete' 'success' && \
-		echo 'Following logs in real-time (Ctrl+C to stop viewing logs)...' && \
-		docker compose -f docker-compose.yml -f docker-compose.staging.yml logs -f"
-
-setup-staging: free-ports
-	@bash -c ". $(PROGRESS_SCRIPT) && \
-		show_logo && \
-		status_msg 'Initializing staging environment setup' 'info' && \
-		if [ ! -f scripts/setup/setup-env.sh ]; then \
-			status_msg 'setup-env.sh script not found' 'error'; \
-			exit 1; \
-		fi; \
-		if [ ! -f scripts/common/init.sh ]; then \
-			status_msg 'init.sh script not found' 'error'; \
-			exit 1; \
-		fi; \
-		chmod +x scripts/setup/setup-env.sh scripts/common/init.sh && \
-		status_msg 'Running setup script' 'info' && \
-		bash -x scripts/setup/setup-env.sh \
-			--env staging \
-			--user deploy \
-			--dir /opt/flow-control \
-			--branch staging \
-			--skip-memory-check && \
-		$(MAKE) staging || { \
-			status_msg 'Setup script failed' 'error'; \
-			exit 1; \
-		}"
+		status_msg 'Starting Docker code analysis' 'info' && \
+		(docker compose run --rm test sh -c '\
+			go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && \
+			/go/bin/golangci-lint run' & progress_bar 15) && \
+		complete_task 'Docker code analysis complete!'"
 
 help:
 	@bash -c ". $(PROGRESS_SCRIPT) && \
