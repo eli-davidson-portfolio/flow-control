@@ -8,11 +8,10 @@ services:
     environment:
       - GO_ENV=staging
       - CONFIG_FILE=/app/config.json
+      - PORT=${APP_PORT:-8080}
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
-    ports:
-      - "${APP_PORT:-8080}:8080"
     network_mode: host
     restart: unless-stopped
     deploy:
@@ -27,9 +26,9 @@ services:
     volumes:
       - ./config/hooks.json:/etc/webhook/hooks.json
       - ./scripts:/app/scripts
-    ports:
-      - "${WEBHOOK_PORT:-9000}:9000"
-    command: -hooks /etc/webhook/hooks.json -verbose
+    environment:
+      - PORT=${WEBHOOK_PORT:-9000}
+    command: -hooks /etc/webhook/hooks.json -verbose -port ${WEBHOOK_PORT:-9000}
     network_mode: host
     restart: unless-stopped
 
