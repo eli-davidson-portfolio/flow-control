@@ -3,52 +3,60 @@ FROM golang:1.22.1-alpine AS docs
 
 WORKDIR /app
 
-# Install swag
-RUN go install github.com/swaggo/swag/cmd/swag@latest
+# Install build essentials and swag first for better caching
+RUN apk add --no-cache git && \
+    go install github.com/swaggo/swag/cmd/swag@latest
+
+# Copy go mod files first and download dependencies
+COPY go.mod go.sum ./
+RUN go mod download && go mod tidy
 
 # Copy only what's needed for docs
-COPY go.mod go.sum ./
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
 
 # Generate documentation
-RUN cd /app && \
-    go mod download && \
-    go mod tidy && \
-    /go/bin/swag init \
-        --dir /app/cmd/flowcontrol \
-        --generalInfo main.go \
-        --propertyStrategy camelcase \
-        --output /app/docs \
-        --parseInternal \
-        --parseDependency
+RUN /go/bin/swag init \
+    --dir /app/cmd/flowcontrol \
+    --generalInfo main.go \
+    --propertyStrategy camelcase \
+    --output /app/docs \
+    --parseInternal \
+    --parseDependency
 
 # Build stage
 FROM golang:1.22.1-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies
+# Install build dependencies first for better caching
 RUN apk add --no-cache gcc musl-dev sqlite-dev
 
-# Copy go mod files and download dependencies
+# Copy go mod files first and download dependencies
 COPY go.mod go.sum ./
-RUN go mod download
+RUN go mod download && go mod tidy
 
-# Copy source code and generated docs
+# Copy source code
 COPY . .
+
+# Copy generated docs
 COPY --from=docs /app/docs/ ./docs/
 
-# Build the application
-RUN go build -o flow-control ./cmd/flowcontrol
+# Build the application with optimizations
+RUN CGO_ENABLED=1 go build \
+    -ldflags="-w -s" \
+    -o flow-control ./cmd/flowcontrol
 
 # Development stage with hot reload
 FROM golang:1.22.1-alpine AS dev
 
 WORKDIR /app
 
-RUN go install github.com/cosmtrek/air@latest
+# Install development tools
+RUN apk add --no-cache git && \
+    go install github.com/cosmtrek/air@latest
 
+# Copy source code and generated docs
 COPY . .
 COPY --from=docs /app/docs/ ./docs/
 
@@ -63,6 +71,7 @@ WORKDIR /app
 RUN apk add --no-cache gcc musl-dev sqlite-dev git curl && \
     go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
+# Copy source code and generated docs
 COPY . .
 COPY --from=docs /app/docs/ ./docs/
 
@@ -81,6 +90,7 @@ COPY --from=builder /app/flow-control .
 COPY --from=docs /app/docs ./docs
 COPY web/ web/
 
+# Create necessary directories
 RUN mkdir -p data logs
 
 EXPOSE 8080
