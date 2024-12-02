@@ -75,40 +75,29 @@ verify-staging:
 			$(MAKE) capture-logs && \
 			exit 1; \
 		fi && \
-		log_info "Containers are running. Waiting for ports to be ready..." && \
-		MAX_PORT_RETRIES=6 && \
-		PORT_RETRY=0 && \
-		while [ $$PORT_RETRY -lt $$MAX_PORT_RETRIES ]; do \
-			if nc -z localhost 8080 && nc -z localhost 9001; then \
-				break; \
+		log_info "Containers are running. Checking health endpoints..." && \
+		MAX_RETRIES=6 && \
+		RETRY_COUNT=0 && \
+		while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do \
+			APP_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health || echo "failed") && \
+			WEBHOOK_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9001/hooks || echo "failed") && \
+			echo "Health check attempt $$((RETRY_COUNT + 1))/$$MAX_RETRIES:" && \
+			echo "  • App: $$APP_HEALTH" && \
+			echo "  • Webhook: $$WEBHOOK_HEALTH" && \
+			if [ "$$APP_HEALTH" = "200" ] && [ "$$WEBHOOK_HEALTH" = "200" ]; then \
+				log_info "Deployment verified successfully!" && \
+				echo -e "\nServices are available at:" && \
+				echo -e "  • App: http://localhost:8080" && \
+				echo -e "  • Webhook: http://localhost:9001" && \
+				echo -e "\nHealth check endpoints:" && \
+				echo -e "  • App: http://localhost:8080/health ($$APP_HEALTH)" && \
+				echo -e "  • Webhook: http://localhost:9001/hooks ($$WEBHOOK_HEALTH)" && \
+				exit 0; \
 			fi; \
-			echo "Waiting for ports to be ready ($$((PORT_RETRY + 1))/$$MAX_PORT_RETRIES)..." && \
-			PORT_RETRY=$$((PORT_RETRY + 1)); \
-			[ $$PORT_RETRY -lt $$MAX_PORT_RETRIES ] && sleep 5; \
-		done && \
-		if ! nc -z localhost 8080 || ! nc -z localhost 9001; then \
-			log_error "Ports not ready after waiting" && \
-			$(MAKE) capture-logs && \
-			exit 1; \
-		fi && \
-		log_info "Ports are ready. Checking health endpoints..." && \
-		sleep 2 && \
-		APP_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health || echo "failed") && \
-		WEBHOOK_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9001/hooks || echo "failed") && \
-		echo "Health check status:" && \
-		echo "  • App: $$APP_HEALTH" && \
-		echo "  • Webhook: $$WEBHOOK_HEALTH" && \
-		if [ "$$APP_HEALTH" = "200" ] && [ "$$WEBHOOK_HEALTH" = "200" ]; then \
-			log_info "Deployment verified successfully!" && \
-			echo -e "\nServices are available at:" && \
-			echo -e "  • App: http://localhost:8080" && \
-			echo -e "  • Webhook: http://localhost:9001" && \
-			echo -e "\nHealth check endpoints:" && \
-			echo -e "  • App: http://localhost:8080/health ($$APP_HEALTH)" && \
-			echo -e "  • Webhook: http://localhost:9001/hooks ($$WEBHOOK_HEALTH)" && \
-			exit 0; \
-		fi && \
-		log_error "Health checks failed" && \
+			RETRY_COUNT=$$((RETRY_COUNT + 1)); \
+			[ $$RETRY_COUNT -lt $$MAX_RETRIES ] && sleep 5; \
+		done; \
+		log_error "Health checks failed after $$MAX_RETRIES attempts" && \
 		$(MAKE) capture-logs && \
 		log_warning "Services are running but health checks failed. Check logs in logs/deploy-* directory" && \
 		exit 1'
