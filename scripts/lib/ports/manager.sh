@@ -46,11 +46,22 @@ kill_port_process() {
     
     if [ -n "${pid}" ]; then
         if [ "${force}" = "true" ]; then
+            # Force kill and verify
             kill -9 "${pid}" >/dev/null 2>&1 || true
+            sleep 1
+            if kill -0 "${pid}" 2>/dev/null; then
+                log_error "Failed to force kill process ${pid}"
+                return 1
+            fi
         else
             kill "${pid}" >/dev/null 2>&1 || true
+            sleep 1
+            # If process still exists, try force kill
+            if kill -0 "${pid}" 2>/dev/null; then
+                kill -9 "${pid}" >/dev/null 2>&1 || true
+                sleep 1
+            fi
         fi
-        sleep 1
         return 0
     fi
     
@@ -60,29 +71,57 @@ kill_port_process() {
 # Free a port
 free_port() {
     local port="$1"
-    local max_attempts="${2:-3}"
+    local max_attempts="${2:-5}"
     local attempt=1
+    local success=false
     
     log_debug "Attempting to free port ${port}..."
     
-    while port_is_in_use "${port}"; do
-        if [ "${attempt}" -gt "${max_attempts}" ]; then
-            log_error "Failed to free port ${port} after ${max_attempts} attempts"
-            return 1
+    while [ "${attempt}" -le "${max_attempts}" ]; do
+        if ! port_is_in_use "${port}"; then
+            success=true
+            break
         fi
         
-        kill_port_process "${port}" false || true
-        sleep 1
+        log_debug "Attempt ${attempt}/${max_attempts} to free port ${port}"
         
+        # Try graceful kill first
+        kill_port_process "${port}" false || true
+        sleep 2
+        
+        # If still in use, try force kill
         if port_is_in_use "${port}"; then
             kill_port_process "${port}" true || true
-            sleep 1
+            sleep 2
+        fi
+        
+        # Special handling for Docker host networking
+        if port_is_in_use "${port}"; then
+            log_debug "Checking for Docker containers using port ${port}"
+            local containers
+            containers=$(docker ps --format '{{.ID}}' 2>/dev/null) || true
+            if [ -n "${containers}" ]; then
+                echo "${containers}" | while read -r container; do
+                    if docker port "${container}" 2>/dev/null | grep -q ":${port}->"; then
+                        log_debug "Found container ${container} using port ${port}, stopping it"
+                        docker stop "${container}" >/dev/null 2>&1 || true
+                        docker rm -f "${container}" >/dev/null 2>&1 || true
+                    fi
+                done
+            fi
+            sleep 2
         fi
         
         attempt=$((attempt + 1))
     done
     
-    return 0
+    if [ "${success}" = "true" ]; then
+        log_debug "Successfully freed port ${port}"
+        return 0
+    else
+        log_error "Failed to free port ${port} after ${max_attempts} attempts"
+        return 1
+    fi
 }
 
 # Free multiple ports

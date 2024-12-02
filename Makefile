@@ -82,7 +82,14 @@ verify-staging:
 
 staging: clean-env
 	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
+		source $(LIB_DIR)/ports/manager.sh && \
 		log_info "Deploying to staging environment" && \
+		# Ensure ports are free before starting
+		free_ports 8080 9000 && \
+		if ! wait_for_port 8080 10 2 || ! wait_for_port 9000 10 2; then \
+			log_error "Failed to free required ports" && \
+			exit 1; \
+		fi && \
 		docker compose -f docker-compose.staging.yml pull && \
 		docker compose -f docker-compose.staging.yml up -d && \
 		log_info "Staging deployment complete" && \
