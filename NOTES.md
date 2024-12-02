@@ -651,7 +651,69 @@ This organization:
        └── Container health checks
    ```
 
-2. **Recovery Scenarios**
+2. **Network Configuration**
+   ```bash
+   # Networking Modes
+   
+   1. Bridge Network (Recommended)
+   - Uses Docker's bridge network driver
+   - Explicit port mappings (e.g., 8080:8080)
+   - Visible in Docker Desktop
+   - Better network isolation
+   Example configuration:
+     services:
+       app:
+         ports:
+           - "8080:8080"
+         networks:
+           - flow-network
+     networks:
+       flow-network:
+         driver: bridge
+   
+   2. Host Network Mode
+   - Shares host's network stack
+   - No visible port mappings
+   - Less network isolation
+   - Can have port conflicts
+   Example configuration:
+     services:
+       app:
+         network_mode: host
+         environment:
+           SERVER_HOST: "0.0.0.0"
+   
+   # Port Management
+   - Bridge mode: Use port mappings (e.g., "8080:8080")
+   - Host mode: Bind directly to host ports
+   - Health checks use container DNS (localhost)
+   - Services bind to all interfaces (0.0.0.0)
+   
+   # Security Considerations
+   - Drop all capabilities except NET_BIND_SERVICE
+   - Prevent privilege escalation
+   - Use bridge networking for isolation
+   - Explicit port mappings for clarity
+   
+   # Common Pitfalls
+   - Host networking visibility:
+     * No port mappings shown in Docker Desktop
+     * Harder to track port usage
+     * Solution: Use bridge networking
+   
+   - Port conflicts:
+     * Bridge mode prevents most conflicts
+     * Each container has its own network stack
+     * Solution: Use explicit port mappings
+   
+   # IPv4/IPv6 Considerations
+   - Force IPv4 mode with environment variables:
+     * GODEBUG=netdns=go+4,http2server=0,ipv6=0
+     * GO_IPV6_DISABLED=1
+   - Use -4 flag with curl in health checks
+   ```
+
+3. **Recovery Scenarios**
    ```bash
    # Installation Issues
    - Missing Docker installation
@@ -675,19 +737,6 @@ This organization:
    - Too many containers
    - Network conflicts
    - Memory pressure
-   ```
-
-3. **Recovery Strategy**
-   ```bash
-   # Recovery Flow
-   Installation → Permissions → Runtime → Resources
-   
-   # Each step includes:
-   - Verification of current state
-   - Automatic recovery attempt
-   - Multiple retry attempts
-   - Clear error reporting
-   - User guidance for manual steps
    ```
 
 4. **Monitoring and Maintenance**
