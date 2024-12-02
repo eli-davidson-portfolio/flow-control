@@ -407,18 +407,30 @@ setup_git() {
     git config --global init.defaultBranch main
     git config --global --add safe.directory "$base_dir"
     
+    # Save current directory
+    local current_dir
+    current_dir=$(pwd)
+    
     # Remove existing directory if it exists
     if [[ -d "$base_dir" ]]; then
         log_info "Removing existing directory..."
         rm -rf "$base_dir"
     fi
     
+    # Create parent directory if it doesn't exist
+    mkdir -p "$(dirname "$base_dir")"
+    cd "$(dirname "$base_dir")"
+    
     # Clone repository
     log_info "Cloning repository..."
-    git clone -b "$branch" "$repo" "$base_dir" || {
+    git clone -b "$branch" "$repo" "$(basename "$base_dir")" || {
+        cd "$current_dir"
         log_error "Failed to clone repository. Please check your SSH access and try again."
         return 1
     }
+    
+    # Return to original directory
+    cd "$current_dir"
     
     # Set permissions
     chown -R "$USER:$USER" "$base_dir"
@@ -462,17 +474,38 @@ main() {
     setup_webhook "$INSTALL_DIR" "$WEBHOOK_PORT"
     setup_docker
     setup_firewall "80" "$WEBHOOK_PORT" "$APP_PORT"
+    
+    # Display deploy key and wait for user
+    log_info "IMPORTANT: Add the following deploy key to GitHub before continuing:"
+    cat "$INSTALL_DIR/.ssh/id_ed25519.pub"
+    log_info "1. Go to GitHub repository → Settings → Deploy Keys"
+    log_info "2. Click 'Add deploy key'"
+    log_info "3. Title: 'Staging Server'"
+    log_info "4. Paste the key above"
+    log_info "5. Check 'Allow write access' if needed"
+    
+    read -p "Press Enter after adding the deploy key to GitHub..."
+    
+    # Continue with Git setup
     setup_git "$INSTALL_DIR" "$REPO" "$BRANCH"
     
     log_info "Setup completed successfully!"
     
-    # Start the application
-    start_application "$INSTALL_DIR"
+    # Ask before starting application
+    read -p "Would you like to start the application now? [Y/n] " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+        start_application "$INSTALL_DIR"
+    else
+        log_info "You can start the application later with: cd $INSTALL_DIR && make staging"
+    fi
     
     log_info "Next steps:"
-    log_info "1. Add the deploy key to GitHub (shown above)"
-    log_info "2. Configure environment variables in $INSTALL_DIR/.env.$ENV"
-    log_info "3. The application should now be running. Check status with: curl http://localhost:8080/health"
+    log_info "1. The deploy key has been added to GitHub"
+    log_info "2. Environment variables are configured in $INSTALL_DIR/.env.$ENV"
+    if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+        log_info "3. The application should now be running. Check status with: curl http://localhost:8080/health"
+    fi
 }
 
 # Run main function if script is executed directly
