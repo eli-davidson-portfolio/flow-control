@@ -399,18 +399,37 @@ setup_git() {
             cd "$base_dir"
             git init
             git remote add origin "$repo"
-            git fetch origin
-            git checkout -b "$branch" "origin/$branch"
+            git fetch origin || {
+                log_error "Failed to fetch from repository. Please check your SSH access and try again."
+                return 1
+            }
+            git checkout -b "$branch" "origin/$branch" || {
+                log_error "Failed to checkout branch $branch. Please check if the branch exists."
+                return 1
+            }
         else
             # Fresh clone
-            git clone -b "$branch" "$repo" "$base_dir"
+            git clone -b "$branch" "$repo" "$base_dir" || {
+                log_error "Failed to clone repository. Please check your SSH access and try again."
+                return 1
+            }
         fi
     else
         # Existing repository
         cd "$base_dir"
-        git fetch origin
-        git checkout "$branch"
-        git pull origin "$branch"
+        git remote set-url origin "$repo" || true
+        git fetch origin || {
+            log_error "Failed to fetch from repository. Please check your SSH access and try again."
+            return 1
+        }
+        git checkout "$branch" || {
+            log_error "Failed to checkout branch $branch. Please check if the branch exists."
+            return 1
+        }
+        git pull origin "$branch" || {
+            log_error "Failed to pull latest changes. Please check your SSH access and try again."
+            return 1
+        }
     fi
     
     # Set permissions
