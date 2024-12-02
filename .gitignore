@@ -40,4 +40,12 @@ internal/*/test.db
 # Swagger generated files
 /docs/docs.go
 /docs/swagger.json
-/docs/swagger.yaml 
+/docs/swagger.yaml
+
+# Generated files
+tmp/
+data/flows.db
+internal/config/logs/
+logs/
+tmp/air.log
+tmp/main 

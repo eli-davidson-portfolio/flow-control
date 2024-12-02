@@ -4,7 +4,8 @@ package types
 
 import "time"
 
-// Schema represents a data type schema for Flow Control
+// Schema represents a data type schema for Flow Control.
+// It provides validation and type information for messages in the system.
 type Schema interface {
 	// Validate checks if the given data conforms to the schema
 	Validate(data interface{}) error

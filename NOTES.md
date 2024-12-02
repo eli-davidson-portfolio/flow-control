@@ -26,42 +26,72 @@
 
 ## Implementation Plan
 
-1. Schema System (Phase 1 - Current)
+1. Schema System (Phase 1 - Completed)
    ```go
-   internal/runtime/schema/
-   ├── basic.go       # Basic type schemas (string, int, etc)
-   ├── composite.go   # Struct and array schemas
-   ├── validator.go   # Schema validation logic
-   └── registry.go    # Schema type registry
-
-   // Example usage:
-   type JSONSchema struct {
-       schemaType string
-       version    string
-       validator  *gojsonschema.Schema
+   // Core interface in internal/types/types.go
+   type Schema interface {
+       Validate(data interface{}) error
+       GetType() string
+       GetVersion() string
    }
 
-   func (s *JSONSchema) Validate(data interface{}) error {
-       result, err := s.validator.Validate(gojsonschema.NewGoLoader(data))
-       if err != nil {
-           return err
-       }
-       if !result.Valid() {
-           return fmt.Errorf("validation failed: %v", result.Errors())
-       }
-       return nil
+   // Implementations in internal/runtime/schema/
+   ├── basic.go       # Basic type schemas (string, int, etc) ✓
+   ├── composite.go   # Struct and array schemas ✓
+   ├── registry.go    # Schema type registry ✓
+   └── schema_test.go # Schema test suite ✓
+
+   // Implementation header comment
+   // Package schema implements Schema interface from internal/types.
+   // Core types used from internal/types:
+   // - Schema (types.go) - Interface for data type validation
+   // - Message (message.go) - Used in validation examples
+   // - Fields (types.go) - Used for structured logging
+
+   // Example implementation
+   type BasicSchema struct {
+       schemaType string
+       version    string
+       validator  func(interface{}) error
    }
    ```
 
-2. Port System (Phase 2)
+2. Port System (Phase 2 - Current)
    ```go
-   internal/runtime/port/
-   ├── base.go        # Base port implementation
-   ├── buffer.go      # Message buffering
-   ├── metrics.go     # Port metrics collection
-   └── connection.go  # Port connections
+   // Core interface in internal/types/port.go
+   type Port interface {
+       // Data flow
+       Send(ctx context.Context, msg Message) error
+       Receive(ctx context.Context) (Message, error)
+       
+       // Configuration
+       GetConfig() PortConfig
+       SetConfig(PortConfig) error
+       
+       // Flow control
+       GetBackpressure() float64
+       SetBufferSize(size int) error
+       
+       // Observability
+       GetMetrics() PortMetrics
+       GetStatus() PortStatus
+   }
 
-   // Example usage:
+   // Implementations in internal/runtime/port/
+   ├── base.go        # BasePort implementation with core logic
+   ├── buffer.go      # Ring buffer for message queuing
+   ├── metrics.go     # Port metrics collection
+   └── connection.go  # Port-to-port connections
+
+   // Implementation header comment
+   // Package port implements Port interface from internal/types.
+   // Core types used from internal/types:
+   // - Port (port.go) - Interface for message passing
+   // - Message (message.go) - Data packets
+   // - PortConfig (port.go) - Port configuration
+   // - PortMetrics (observability.go) - Metrics collection
+
+   // Example implementation
    type BasePort struct {
        config    PortConfig
        buffer    *MessageBuffer
@@ -73,13 +103,28 @@
 
 3. Node System (Phase 3)
    ```go
-   internal/runtime/node/
+   // Core interface in internal/types/node.go
+   type Node interface {
+       Process(ctx context.Context, input Message) (Message, error)
+       GetConfig() NodeConfig
+       SetConfig(NodeConfig) error
+       GetMetadata() NodeMetadata
+   }
+
+   // Implementations in internal/runtime/node/
    ├── base.go        # BaseNode implementation
    ├── lifecycle.go   # Node lifecycle management
    ├── ports.go       # Port management
    └── registry.go    # Node type registry
 
-   // Example usage:
+   // Implementation header comment
+   // Package node implements Node interface from internal/types.
+   // Core types used from internal/types:
+   // - Node (node.go)
+   // - Message (message.go)
+   // - NodeConfig (node.go)
+
+   // Example implementation
    type BaseNode struct {
        config      NodeConfig
        metadata    NodeMetadata
@@ -93,13 +138,28 @@
 
 4. Message System (Phase 4)
    ```go
-   internal/runtime/message/
+   // Core types in internal/types/message.go
+   type Message struct {
+       ID      string
+       Payload interface{}
+       Schema  Schema
+       Headers map[string]string
+   }
+
+   // Implementations in internal/runtime/message/
    ├── router.go      # Message routing
    ├── queue.go       # Message queuing
    ├── backpressure.go # Flow control
    └── delivery.go    # Message delivery guarantees
 
-   // Example usage:
+   // Implementation header comment
+   // Package message implements message handling for Flow Control.
+   // Core types used from internal/types:
+   // - Message (message.go)
+   // - Schema (types.go)
+   // - Node (node.go)
+
+   // Example implementation
    type MessageRouter struct {
        routes    map[string][]string
        nodes     map[string]Node
@@ -113,27 +173,28 @@
 1. Core Dependencies
    ```go
    require (
-       // Metrics
-       "github.com/prometheus/client_golang" v1.18.0
+       // HTTP Server
+       "github.com/go-chi/chi/v5" v5.1.0
        
-       // Tracing
-       "go.opentelemetry.io/otel" v1.21.0
+       // Database
+       "github.com/mattn/go-sqlite3" v1.14.24
+       
+       // Testing
+       "github.com/stretchr/testify" v1.8.4
+       
+       // API Documentation
+       "github.com/swaggo/http-swagger" v1.3.4
+       "github.com/swaggo/swag" v1.16.4
        
        // Logging
-       "go.uber.org/zap" v1.26.0
-       
-       // Schema Validation
-       "github.com/xeipuuv/gojsonschema" v1.2.0
-       
-       // Configuration
-       "github.com/mitchellh/mapstructure" v1.5.0
+       "gopkg.in/natefinch/lumberjack.v2" v2.2.1
    )
    ```
 
 2. Development Tools
    ```bash
-   # Install tools
-   go install github.com/golangci-lint/golangci-lint@latest
+   # Install tools (scripts/tools/install.sh)
+   go install github.com/golangci/lint/golangci-lint@latest
    go install github.com/swaggo/swag/cmd/swag@latest
    go install github.com/cosmtrek/air@latest
    ```
@@ -197,16 +258,23 @@
 ## Next Steps
 
 1. Immediate Tasks
-   - [ ] Implement basic Schema interface
-   - [ ] Add JSON Schema validation
-   - [ ] Create schema registry
-   - [ ] Write schema tests
+   - [x] Implement basic Schema interface
+   - [x] Add JSON Schema validation
+   - [x] Create schema registry
+   - [x] Write schema tests
+   - [ ] Begin Port System implementation
 
 2. Port System Tasks
-   - [ ] Design message buffer
-   - [ ] Implement backpressure
-   - [ ] Add metrics collection
-   - [ ] Create connection manager
+   - [ ] Design and implement MessageBuffer with ring buffer
+   - [ ] Create BasePort with core Send/Receive logic
+   - [ ] Add backpressure monitoring and control
+   - [ ] Implement port metrics collection
+   - [ ] Add port status tracking
+   - [ ] Create connection management system
+   - [ ] Write comprehensive port tests
+   - [ ] Add port configuration validation
+   - [ ] Implement graceful shutdown handling
+   - [ ] Add message filtering capabilities
 
 3. Node System Tasks
    - [ ] Create base node structure
@@ -223,16 +291,25 @@
 ## Design Decisions
 
 1. Schema System
-   - Use JSON Schema for validation
-   - Support custom validators
-   - Include version control
-   - Enable schema evolution
+   - Basic type validation with custom validators ✓
+   - Composite types (arrays, objects) support ✓
+   - Version control with compatibility checks ✓
+   - Centralized type definitions in types.go ✓
+   - Registry for type management ✓
+   - Extensible validation system ✓
+   - Thread-safe implementation ✓
 
 2. Port System
-   - Ring buffer for messages
-   - Configurable buffer size
-   - Automatic backpressure
-   - Metric collection
+   - Ring buffer implementation for efficient message queuing
+   - Configurable buffer sizes with automatic resizing
+   - Backpressure monitoring and flow control
+   - Real-time metrics collection
+   - Connection lifecycle management
+   - Support for different message delivery modes
+   - Thread-safe implementation
+   - Graceful shutdown handling
+   - Message filtering and transformation
+   - Error handling and recovery
 
 3. Node System
    - Pluggable architecture
@@ -299,55 +376,156 @@ This centralization makes it easier to:
 ## Development Workflow
 
 1. **Local Development**
-   - Run development server: `make dev`
-   - Format code: `make fmt`
-   - Run linters: `make lint`
-   - Run tests: `make test`
-   - Test specific package: `make test-pkg PKG=./path/to/package`
+   ```bash
+   # Development Commands
+   make dev              # Run development server
+   make fmt              # Format code
+   make lint             # Run linters
+   make test             # Run tests
+   make test-pkg PKG=./path/to/package  # Test specific package
+   
+   # Development Flow
+   1. Edit code
+   2. Tests run automatically on save
+   3. Linting runs automatically
+   4. Local development server reloads
+   ```
 
-2. **Pre-commit Checks**
-   The pre-commit hook automatically runs:
-   - Code formatting
-   - Linting
-   - Tests
-   Install hooks with: `make install-tools`
+2. **Automated Environment Management**
+   ```bash
+   # Docker Environment
+   ./scripts/docker-check.sh  # Verify/fix Docker environment
+   Options:
+   --quiet         # Suppress non-essential output
+   --no-compose    # Skip Docker Compose checks
+   
+   Features:
+   - Automatic Docker Desktop startup
+   - Version compatibility checks
+   - Image/container management
+   - Resource monitoring
+   - Cache management
+   ```
 
-3. **CI/CD Pipeline**
-   The CI pipeline runs in GitHub Actions and includes:
-   - Code formatting check
-   - Linting
-   - Tests
-   - Build verification
-   All steps run in Docker for consistency with local development.
+3. **Test Management**
+   ```bash
+   # Test Commands
+   ./scripts/test.sh    # Run all tests
+   Options:
+   --package PKG      # Test specific package
+   --local           # Run tests locally
+   --retry N         # Retry flaky tests
+   --format FMT      # Output format
+   
+   Features:
+   - Test caching
+   - Parallel execution
+   - Flaky test handling
+   - Dependency management
+   ```
 
-4. **Script Organization**
-   - `scripts/common/` - Common environment and utilities
-   - `scripts/build/` - Build and code quality tools
-   - `scripts/test/` - Test runners and setup
-   - `scripts/dev/` - Development server and tools
-   - `scripts/tools/` - Tool installation and setup
+4. **Pre-commit System**
+   ```bash
+   # Configuration (.flowcontrol/config.yml)
+   checks:
+     format: true
+     lint: true
+     test: true
+     docker: true
+   
+   # Features
+   - Configurable checks
+   - Parallel execution
+   - Incremental checking
+   - Cache management
+   ```
 
-5. **Docker Usage**
-   - Development container: `golang:1.21.8-bullseye`
-   - All commands run through Docker for consistency
-   - Common dependencies managed in docker-env.sh
-   - Persistent Go module cache through Docker volumes
+5. **CI/CD Pipeline**
+   ```bash
+   # GitHub Actions Workflow
+   ├── Environment Check
+   │   ├── Docker verification
+   │   └── Resource validation
+   │
+   ├── Code Quality
+   │   ├── Formatting
+   │   ├── Linting
+   │   └── Static analysis
+   │
+   ├── Testing
+   │   ├── Unit tests
+   │   ├── Integration tests
+   │   └── Coverage report
+   │
+   └── Build
+       ├── Binary compilation
+       ├── Docker image
+       └── Documentation
+   ```
 
-6. **Code Quality**
-   - Go formatting with `gofmt`
-   - Linting with `golangci-lint`
-   - Tests must pass in Docker environment
-   - Pre-commit hooks ensure quality before commits
+6. **Script Organization**
+   ```bash
+   scripts/
+   ├── common/           # Shared utilities
+   │   ├── docker-env.sh    # Docker environment
+   │   └── docker-check.sh  # Environment verification
+   │
+   ├── build/           # Build tools
+   │   ├── format.sh       # Code formatting
+   │   └── lint.sh         # Code linting
+   │
+   ├── test/            # Test runners
+   │   ├── setup.sh        # Test environment
+   │   └── run.sh          # Test execution
+   │
+   ├── dev/             # Development tools
+   │   └── server.sh       # Dev server
+   │
+   └── tools/           # Tool management
+       └── install.sh      # Tool installation
+   ```
 
-7. **Dependencies**
-   - Managed through `go.mod`
-   - Vendored dependencies for reproducible builds
-   - Docker environment includes common system packages
+7. **Error Recovery**
+   ```bash
+   # Common Issues
+   - Docker not running
+   - Missing dependencies
+   - Resource exhaustion
+   - Network conflicts
+   
+   # Recovery Flow
+   1. Automatic detection
+   2. Environment verification
+   3. Automatic recovery
+   4. Clear error reporting
+   5. User guidance
+   ```
 
-8. **Documentation**
-   - API docs generated with Swagger
-   - Package documentation with godoc
-   - Source code browser for exploration
+8. **Development States**
+   ```bash
+   # State Management
+   ├── Environment
+   │   ├── Docker status
+   │   ├── Dependencies
+   │   └── Resources
+   │
+   ├── Code Quality
+   │   ├── Format state
+   │   ├── Lint state
+   │   └── Test state
+   │
+   └── Development
+       ├── Server status
+       ├── Hot reload
+       └── Debug state
+   ```
+
+This workflow is designed to:
+- Minimize development friction
+- Automate common tasks
+- Handle edge cases gracefully
+- Provide clear feedback
+- Maintain code quality
 
 # Type Organization
 
@@ -355,14 +533,18 @@ This centralization makes it easier to:
 
 All type definitions are centralized in the `internal/types` package, organized by domain:
 
-1. `runtime.go` - Package documentation and overview
-2. `schema.go` - Data validation and type schemas
+1. `types.go` - Common interfaces and utilities
+   - Schema interface
+   - Logger interface
+   - Fields type
+   - Flow types
+2. `schema.go` - Data validation and type schemas (moved to types.go)
 3. `node.go` - Flow processing nodes and configuration
 4. `port.go` - Message ports and routing
 5. `message.go` - Data packets and delivery
 6. `resources.go` - Resource management and limits
 7. `observability.go` - Metrics, logging, and tracing
-8. `types.go` - Common interfaces and utilities
+8. `runtime.go` - Runtime and execution types
 
 This organization:
 - Keeps related types together
@@ -398,17 +580,34 @@ This organization:
    - Backward compatibility maintained
    - Migration paths documented
 
+6. **Type Definition Prevention**
+   - All core types defined in `internal/types` package
+   - Each file must have a header comment listing imported types
+   - Example header:
+     ```go
+     // Package schema implements Schema interface from internal/types.
+     // Core types used from internal/types:
+     // - Schema (types.go)
+     // - Message (message.go)
+     // - NodeConfig (node.go)
+     ```
+   - This prevents accidental type redefinition
+   - Makes dependencies explicit
+   - Helps with code review
+
 ## Implementation Guidelines
 
 1. **New Types**
    - Add to appropriate domain file
    - Follow existing patterns
    - Update package documentation
+   - Add header comment listing imported types
 
 2. **Type Changes**
    - Consider backward compatibility
    - Update all implementations
    - Add migration notes if needed
+   - Update header comments in affected files
 
 3. **Testing**
    - Test interfaces thoroughly
@@ -419,3 +618,98 @@ This organization:
    - Keep docs up to date
    - Include examples
    - Note breaking changes
+
+## Docker Environment Management
+
+1. **Automatic Recovery**
+   ```bash
+   # Docker environment checks (scripts/common/docker-check.sh)
+   ├── System Requirements
+   │   ├── Disk space verification (10GB minimum)
+   │   ├── User permissions (docker group)
+   │   └── OS compatibility checks
+   │
+   ├── Installation Recovery
+   │   ├── Docker Desktop (macOS)
+   │   ├── Docker Engine (Linux)
+   │   └── Docker Compose
+   │
+   ├── Runtime Recovery
+   │   ├── Daemon status check
+   │   ├── Service startup
+   │   └── API compatibility
+   │
+   └── Resource Management
+       ├── Disk usage monitoring
+       ├── Automatic cleanup
+       └── Container health checks
+   ```
+
+2. **Recovery Scenarios**
+   ```bash
+   # Installation Issues
+   - Missing Docker installation
+   - Missing Docker Compose
+   - Incomplete/corrupted installation
+   - Missing system dependencies
+   
+   # Permission Issues
+   - Non-root user without docker group
+   - Missing systemd permissions
+   - Socket permission issues
+   
+   # Runtime Issues
+   - Stopped Docker daemon
+   - Crashed Docker service
+   - Resource exhaustion
+   - Disk space issues
+   
+   # Resource Issues
+   - Full disk space
+   - Too many containers
+   - Network conflicts
+   - Memory pressure
+   ```
+
+3. **Recovery Strategy**
+   ```bash
+   # Recovery Flow
+   Installation → Permissions → Runtime → Resources
+   
+   # Each step includes:
+   - Verification of current state
+   - Automatic recovery attempt
+   - Multiple retry attempts
+   - Clear error reporting
+   - User guidance for manual steps
+   ```
+
+4. **Monitoring and Maintenance**
+   ```bash
+   # Automatic Checks
+   - Pre-command verification
+   - Resource monitoring
+   - Health checks
+   - Cleanup triggers
+   
+   # Maintenance Tasks
+   - Unused resource cleanup
+   - Image pruning
+   - Volume management
+   - Network cleanup
+   ```
+
+5. **Error Handling**
+   ```bash
+   # Error Levels
+   - Recoverable (retry with backoff)
+   - User-fixable (show instructions)
+   - System-level (require admin)
+   - Fatal (stop execution)
+   
+   # Recovery Actions
+   - Automatic retry (3 attempts)
+   - Resource cleanup
+   - Service restart
+   - User notification
+   ```

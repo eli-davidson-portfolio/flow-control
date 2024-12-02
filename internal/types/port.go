@@ -9,15 +9,15 @@ type Port interface {
 	// Data flow
 	Send(ctx context.Context, msg Message) error
 	Receive(ctx context.Context) (Message, error)
-	
+
 	// Configuration
 	GetConfig() PortConfig
 	SetConfig(PortConfig) error
-	
+
 	// Flow control
 	GetBackpressure() float64
 	SetBufferSize(size int) error
-	
+
 	// Observability
 	GetMetrics() PortMetrics
 	GetStatus() PortStatus
@@ -37,6 +37,8 @@ type PortConfig struct {
 type PortDirection string
 
 const (
-	PortDirectionInput  PortDirection = "input"
+	// PortDirectionInput represents an input port that receives messages
+	PortDirectionInput PortDirection = "input"
+	// PortDirectionOutput represents an output port that sends messages
 	PortDirectionOutput PortDirection = "output"
-) 
+)

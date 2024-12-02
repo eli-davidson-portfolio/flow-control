@@ -10,13 +10,13 @@ type MetricsPort interface {
 	// Counter operations
 	Inc(name string, value float64, labels map[string]string)
 	Dec(name string, value float64, labels map[string]string)
-	
+
 	// Gauge operations
 	Set(name string, value float64, labels map[string]string)
-	
+
 	// Histogram operations
 	Observe(name string, value float64, labels map[string]string)
-	
+
 	// Management
 	Register(collector MetricsCollector) error
 	Unregister(collector MetricsCollector) error
@@ -49,8 +49,11 @@ type MetricDesc struct {
 type MetricType string
 
 const (
-	MetricTypeCounter   MetricType = "counter"
-	MetricTypeGauge    MetricType = "gauge"
+	// MetricTypeCounter represents a cumulative metric that can only increase
+	MetricTypeCounter MetricType = "counter"
+	// MetricTypeGauge represents a metric that can increase and decrease
+	MetricTypeGauge MetricType = "gauge"
+	// MetricTypeHistogram represents a metric that samples observations
 	MetricTypeHistogram MetricType = "histogram"
 )
 
@@ -61,11 +64,11 @@ type LogPort interface {
 	Info(msg string, fields Fields)
 	Warn(msg string, fields Fields)
 	Error(msg string, err error, fields Fields)
-	
+
 	// Configuration
 	SetLevel(level LogLevel)
 	AddHook(hook LogHook)
-	
+
 	// Context
 	WithContext(ctx context.Context) LogPort
 	WithFields(fields Fields) LogPort
@@ -75,9 +78,13 @@ type LogPort interface {
 type LogLevel string
 
 const (
+	// LogLevelDebug represents detailed information for debugging
 	LogLevelDebug LogLevel = "debug"
-	LogLevelInfo  LogLevel = "info"
-	LogLevelWarn  LogLevel = "warn"
+	// LogLevelInfo represents general operational information
+	LogLevelInfo LogLevel = "info"
+	// LogLevelWarn represents potentially harmful situations
+	LogLevelWarn LogLevel = "warn"
+	// LogLevelError represents error events that might still allow the application to continue running
 	LogLevelError LogLevel = "error"
 )
 
@@ -89,13 +96,13 @@ type LogHook interface {
 
 // LogEntry represents a log entry
 type LogEntry struct {
-	Level     LogLevel
-	Message   string
-	Fields    Fields
-	Time      time.Time
-	Error     error
-	TraceID   string
-	SpanID    string
+	Level   LogLevel
+	Message string
+	Fields  Fields
+	Time    time.Time
+	Error   error
+	TraceID string
+	SpanID  string
 }
 
 // TracePort provides distributed tracing capabilities
@@ -104,7 +111,7 @@ type TracePort interface {
 	StartSpan(name string, opts ...SpanOption) (Span, context.Context)
 	InjectSpan(ctx context.Context, carrier interface{}) error
 	ExtractSpan(ctx context.Context, carrier interface{}) (context.Context, error)
-	
+
 	// Baggage
 	GetBaggage(ctx context.Context) map[string]string
 	SetBaggage(ctx context.Context, key, value string) context.Context
@@ -116,11 +123,11 @@ type Span interface {
 	Context() context.Context
 	SetName(name string)
 	SetAttributes(attrs map[string]interface{})
-	
+
 	// Events and errors
 	AddEvent(name string, attrs map[string]interface{})
 	RecordError(err error)
-	
+
 	// Lifecycle
 	End()
 	IsRecording() bool
@@ -143,12 +150,12 @@ type ObservabilityConfig struct {
 	// Metrics configuration
 	MetricsEnabled bool              `json:"metrics_enabled"`
 	MetricsTags    map[string]string `json:"metrics_tags"`
-	
+
 	// Logging configuration
-	LogLevel    LogLevel         `json:"log_level"`
-	LogFormat   string           `json:"log_format"`
-	LogFields   map[string]string `json:"log_fields"`
-	
+	LogLevel  LogLevel          `json:"log_level"`
+	LogFormat string            `json:"log_format"`
+	LogFields map[string]string `json:"log_fields"`
+
 	// Tracing configuration
 	TracingEnabled bool              `json:"tracing_enabled"`
 	TraceTags      map[string]string `json:"trace_tags"`
@@ -156,13 +163,13 @@ type ObservabilityConfig struct {
 
 // PortMetrics provides port-specific metrics
 type PortMetrics struct {
-	MessagesIn    int64
-	MessagesOut   int64
-	BytesIn       int64
-	BytesOut      int64
-	LastMessage   time.Time
-	ErrorCount    int64
-	Backpressure  float64
+	MessagesIn   int64
+	MessagesOut  int64
+	BytesIn      int64
+	BytesOut     int64
+	LastMessage  time.Time
+	ErrorCount   int64
+	Backpressure float64
 }
 
 // PortStatus represents the current state of a port
@@ -172,4 +179,4 @@ type PortStatus struct {
 	BufferUsage  float64
 	LastError    error
 	LastActivity time.Time
-} 
+}

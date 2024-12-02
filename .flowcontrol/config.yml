@@ -1,0 +1,79 @@
+# Flow Control Development Configuration
+
+# Pre-commit check configuration
+checks:
+  format:
+    enabled: true
+    parallel: true
+    include: ["*.go"]
+    exclude: ["vendor/**"]
+    
+  lint:
+    enabled: true
+    parallel: true
+    include: ["*.go"]
+    exclude: ["vendor/**"]
+    rules:
+      - gofmt
+      - goimports
+      - golint
+      - govet
+    
+  test:
+    enabled: true
+    parallel: true
+    cache: true
+    retry_flaky: true
+    max_retries: 3
+    timeout: "10m"
+    
+  docker:
+    enabled: true
+    cache: true
+    cache_duration: 300 # 5 minutes
+    min_versions:
+      docker: "20.10.0"
+      compose: "2.0.0"
+
+# Development environment configuration
+environment:
+  docker:
+    images:
+      - golang:1.22.9-bullseye
+      - swaggerapi/swagger-ui
+    volumes:
+      - go-cache:/go
+    ports:
+      - "8080:8080"
+      
+  dependencies:
+    system:
+      - sqlite3
+      - libsqlite3-dev
+      - gcc
+      - make
+      - git
+      - curl
+    go:
+      - github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - github.com/swaggo/swag/cmd/swag@latest
+      - github.com/cosmtrek/air@latest
+
+# Resource management
+resources:
+  disk:
+    min_free: "10GB"
+    cleanup_threshold: "5GB"
+  memory:
+    min_free: "2GB"
+  cpu:
+    max_parallel: 4
+
+# Error handling
+errors:
+  retry:
+    max_attempts: 3
+    delay: 5
+  recovery:
+    automatic: true
+    notify_user: true 
