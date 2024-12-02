@@ -70,9 +70,12 @@ show_step() {
 # Function to show build progress
 show_build_progress() {
   local build_output_file=$(mktemp)
+  local summary_file=$(mktemp)
   
-  # Start the build in background and capture output
-  docker compose -f docker-compose.staging.yml build > "$build_output_file" 2>&1 &
+  echo -e "\nStarting build process..."
+  
+  # Start the build in background and tee output to both files
+  docker compose -f docker-compose.staging.yml build 2>&1 | tee "$build_output_file" "$summary_file" &
   local build_pid=$!
   
   # Show spinner while building
@@ -86,16 +89,19 @@ show_build_progress() {
     show_step "Services built successfully" "success"
     # Show build summary
     echo -e "\nBuild Summary:"
-    grep -E "Step [0-9]+/[0-9]+" "$build_output_file" | tail -n 5 | sed 's/^/  /'
+    echo -e "  Last completed steps:"
+    grep -E "Step [0-9]+/[0-9]+ : " "$summary_file" | tail -n 5 | sed 's/^/    /'
+    echo -e "  Successfully built:"
+    grep -E "Successfully built|Successfully tagged" "$summary_file" | sed 's/^/    /'
   else
     show_step "Failed to build services" "error"
-    echo -e "\nBuild Error:"
-    tail -n 10 "$build_output_file" | sed 's/^/  /'
-    rm "$build_output_file"
+    echo -e "\nBuild Error (last 10 lines):"
+    tail -n 10 "$build_output_file" | sed 's/^/    /'
+    rm "$build_output_file" "$summary_file"
     exit 1
   fi
   
-  rm "$build_output_file"
+  rm "$build_output_file" "$summary_file"
 }
 
 # Function to check service health
@@ -122,8 +128,34 @@ check_service_health() {
   return 1
 }
 
+# Function to get the appropriate host for the environment
+get_host() {
+  case "${ENVIRONMENT:-dev}" in
+    "staging")
+      # Get the actual IP address for staging
+      if command -v ip >/dev/null 2>&1; then
+        # Linux
+        ip route get 1 | awk '{print $7; exit}'
+      else
+        # macOS
+        ipconfig getifaddr en0 || ipconfig getifaddr en1
+      fi
+      ;;
+    "prod")
+      echo "${DOMAIN_NAME:-$(hostname -f)}"
+      ;;
+    *)
+      # Dev environment defaults to localhost
+      echo "localhost"
+      ;;
+  esac
+}
+
 # Main deployment steps
 main() {
+  # Get the appropriate host
+  HOST=$(get_host)
+  
   # Step 1: Clean up environment
   show_step "Cleaning up environment" "start"
   if make clean > /dev/null 2>&1; then
@@ -156,14 +188,14 @@ main() {
   # Step 4: Wait for services to be healthy
   show_step "Waiting for services to be healthy" "start"
   echo -e "\nChecking app health..."
-  if ! check_service_health "app" "http://localhost:8080/health"; then
+  if ! check_service_health "app" "http://${HOST}:8080/health"; then
     show_step "App health check failed" "error"
     docker compose -f docker-compose.staging.yml logs app
     exit 1
   fi
   
   echo -e "\nChecking webhook health..."
-  if ! check_service_health "webhook" "http://localhost:9001/hooks/deploy"; then
+  if ! check_service_health "webhook" "http://${HOST}:9001/hooks/deploy"; then
     show_step "Webhook health check failed" "error"
     docker compose -f docker-compose.staging.yml logs webhook
     exit 1
@@ -174,11 +206,31 @@ main() {
   # Step 5: Final verification
   show_step "Verifying deployment" "start"
   echo -e "\nServices are available at:"
-  echo -e "  • App: http://localhost:8080"
-  echo -e "  • Webhook: http://localhost:9001"
+  echo -e "  • App: http://${HOST}:8080"
+  echo -e "  • Webhook: http://${HOST}:9001"
   echo -e "\nHealth check endpoints:"
-  echo -e "  • App: http://localhost:8080/health"
-  echo -e "  • Webhook: http://localhost:9001/hooks/deploy"
+  echo -e "  • App: http://${HOST}:8080/health"
+  echo -e "  • Webhook: http://${HOST}:9001/hooks/deploy"
+  
+  # Show environment-specific message
+  case "${ENVIRONMENT:-dev}" in
+    "staging")
+      echo -e "\nStaging Environment:"
+      echo -e "  • IP Address: ${HOST}"
+      echo -e "  • Environment: Staging"
+      ;;
+    "prod")
+      echo -e "\nProduction Environment:"
+      echo -e "  • Domain: ${HOST}"
+      echo -e "  • Environment: Production"
+      ;;
+    *)
+      echo -e "\nDevelopment Environment:"
+      echo -e "  • Host: localhost"
+      echo -e "  • Environment: Development"
+      ;;
+  esac
+  
   show_step "Deployment complete" "success"
 }
 
