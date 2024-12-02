@@ -391,14 +391,25 @@ setup_git() {
     # Configure Git
     git config --global init.defaultBranch main
     
-    # Clone repository
+    # Handle repository setup
     if [[ ! -d "$base_dir/.git" ]]; then
-        git clone -b "$branch" "$repo" "$base_dir"
+        if [[ -d "$base_dir" ]]; then
+            # Directory exists but isn't a git repo
+            cd "$base_dir"
+            git init
+            git remote add origin "$repo"
+            git fetch origin
+            git checkout -b "$branch" "origin/$branch"
+        else
+            # Fresh clone
+            git clone -b "$branch" "$repo" "$base_dir"
+        fi
     else
+        # Existing repository
         cd "$base_dir"
-        git fetch
+        git fetch origin
         git checkout "$branch"
-        git pull
+        git pull origin "$branch"
     fi
     
     # Set permissions
