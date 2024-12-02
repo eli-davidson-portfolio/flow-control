@@ -1,0 +1,18 @@
+[
+  {
+    "id": "deploy",
+    "execute-command": "/app/scripts/deploy.sh",
+    "command-working-directory": "/app/scripts",
+    "response-message": "Deploying application...",
+    "trigger-rule": {
+      "match": {
+        "type": "value",
+        "value": "staging",
+        "parameter": {
+          "source": "payload",
+          "name": "environment"
+        }
+      }
+    }
+  }
+] 
