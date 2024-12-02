@@ -20,19 +20,22 @@ EOF
 # Add a newline after the logo
 echo
 
-# Function to show spinner
-show_spinner() {
+# Function to show spinner with elapsed time
+show_spinner_with_time() {
   local pid=$1
+  local message=$2
   local delay=0.1
-  local spinstr='|/-\'
+  local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+  local start_time=$(date +%s)
+  
   while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
     local temp=${spinstr#?}
-    printf " [%c]  " "$spinstr"
+    local elapsed=$(($(date +%s) - start_time))
+    printf "\r\033[K  %c  %s (%ds)" "$spinstr" "$message" $elapsed
     local spinstr=$temp${spinstr%"$temp"}
     sleep $delay
-    printf "\b\b\b\b\b\b"
   done
-  printf "    \b\b\b\b"
+  printf "\r\033[K"
 }
 
 # Function to show step progress
@@ -62,6 +65,37 @@ show_step() {
   esac
   
   echo -e "${color}${symbol} ${message}${NC}"
+}
+
+# Function to show build progress
+show_build_progress() {
+  local build_output_file=$(mktemp)
+  
+  # Start the build in background and capture output
+  docker compose -f docker-compose.staging.yml build > "$build_output_file" 2>&1 &
+  local build_pid=$!
+  
+  # Show spinner while building
+  show_spinner_with_time $build_pid "Building services"
+  
+  # Check if build succeeded
+  wait $build_pid
+  local build_status=$?
+  
+  if [ $build_status -eq 0 ]; then
+    show_step "Services built successfully" "success"
+    # Show build summary
+    echo -e "\nBuild Summary:"
+    grep -E "Step [0-9]+/[0-9]+" "$build_output_file" | tail -n 5 | sed 's/^/  /'
+  else
+    show_step "Failed to build services" "error"
+    echo -e "\nBuild Error:"
+    tail -n 10 "$build_output_file" | sed 's/^/  /'
+    rm "$build_output_file"
+    exit 1
+  fi
+  
+  rm "$build_output_file"
 }
 
 # Function to check service health
@@ -99,35 +133,37 @@ main() {
     exit 1
   fi
   
-  # Step 2: Build services
+  # Step 2: Build services with enhanced progress
   show_step "Building services" "start"
-  if docker compose -f docker-compose.staging.yml build > /dev/null 2>&1; then
-    show_step "Services built successfully" "success"
-  else
-    show_step "Failed to build services" "error"
-    exit 1
-  fi
+  show_build_progress
   
-  # Step 3: Start services
+  # Step 3: Start services with progress
   show_step "Starting services" "start"
-  if docker compose -f docker-compose.staging.yml up -d > /dev/null 2>&1; then
+  local start_output_file=$(mktemp)
+  if docker compose -f docker-compose.staging.yml up -d > "$start_output_file" 2>&1; then
     show_step "Services started" "success"
+    echo -e "\nStarted containers:"
+    grep -E "Container .+ Started" "$start_output_file" | sed 's/^/  /'
   else
     show_step "Failed to start services" "error"
+    echo -e "\nStart Error:"
+    cat "$start_output_file" | sed 's/^/  /'
+    rm "$start_output_file"
     exit 1
   fi
+  rm "$start_output_file"
   
   # Step 4: Wait for services to be healthy
   show_step "Waiting for services to be healthy" "start"
   echo -e "\nChecking app health..."
-  if ! check_service_health "app" "http://127.0.0.1:8080/health"; then
+  if ! check_service_health "app" "http://localhost:8080/health"; then
     show_step "App health check failed" "error"
     docker compose -f docker-compose.staging.yml logs app
     exit 1
   fi
   
   echo -e "\nChecking webhook health..."
-  if ! check_service_health "webhook" "http://127.0.0.1:9001/hooks/deploy"; then
+  if ! check_service_health "webhook" "http://localhost:9001/hooks/deploy"; then
     show_step "Webhook health check failed" "error"
     docker compose -f docker-compose.staging.yml logs webhook
     exit 1
@@ -138,11 +174,11 @@ main() {
   # Step 5: Final verification
   show_step "Verifying deployment" "start"
   echo -e "\nServices are available at:"
-  echo -e "  • App: http://127.0.0.1:8080"
-  echo -e "  • Webhook: http://127.0.0.1:9001"
+  echo -e "  • App: http://localhost:8080"
+  echo -e "  • Webhook: http://localhost:9001"
   echo -e "\nHealth check endpoints:"
-  echo -e "  • App: http://127.0.0.1:8080/health"
-  echo -e "  • Webhook: http://127.0.0.1:9001/hooks/deploy"
+  echo -e "  • App: http://localhost:8080/health"
+  echo -e "  • Webhook: http://localhost:9001/hooks/deploy"
   show_step "Deployment complete" "success"
 }
 
