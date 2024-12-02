@@ -6,6 +6,14 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../common/init.sh"
 
+# Function to follow Docker logs
+follow_docker_logs() {
+    echo "Following Docker logs in real-time (Ctrl+C to stop viewing logs)..."
+    docker compose -f docker-compose.yml -f docker-compose.staging.yml logs -f &
+    LOGS_PID=$!
+    trap 'kill $LOGS_PID 2>/dev/null' EXIT
+}
+
 # Default values
 ENV="staging"
 USER="deploy"

@@ -81,6 +81,8 @@ dev:
 staging: docs
 	@echo "Starting staging server..."
 	@docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
+	@echo "Following logs in real-time (Ctrl+C to stop viewing logs)..."
+	@docker compose -f docker-compose.yml -f docker-compose.staging.yml logs -f
 
 # Docker environment tests
 docker-test:
