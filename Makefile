@@ -7,125 +7,130 @@ all: check build
 
 build:
 	@echo "Building application..."
-	@docker compose run --rm test go build -o flow-control ./cmd/flowcontrol
-	@echo "Build complete!"
+	@source scripts/common/progress.sh && \
+		show_logo && \
+		status_msg "Starting build process" "info" && \
+		matrix_rain 1 && \
+		(docker compose run --rm test go build -o flow-control ./cmd/flowcontrol & progress_bar 30) && \
+		complete_task "Build complete!"
 
 run: check
 	@echo "Starting application..."
-	@docker compose up dev
+	@source scripts/common/progress.sh && \
+		show_logo && \
+		status_msg "Launching development server" "info" && \
+		docker compose up dev
 
-# Test includes dependency management (go mod tidy)
 test:
-	@echo "Running tests (this may take a while)..."
-	@docker compose run --rm test go test ./...
-	@echo "Tests complete!"
-
-test-pkg:
-	@echo "Testing package $(PKG)..."
-	@docker compose run --rm test go test $(PKG)
-	@echo "Package tests complete!"
+	@echo "Running tests..."
+	@source scripts/common/progress.sh && \
+		show_logo && \
+		status_msg "Initializing test suite" "info" && \
+		matrix_rain 1 && \
+		(docker compose run --rm test go test ./... & progress_bar 20) && \
+		complete_task "Tests complete!"
 
 clean:
 	@echo "Cleaning build artifacts..."
-	@rm -f flowcontrol
-	@rm -rf docs/
-	@rm -rf tmp/
-	@docker compose down -v
-	@echo "Clean complete!"
+	@source scripts/common/progress.sh && \
+		status_msg "Cleaning workspace" "info" && \
+		rm -f flowcontrol && \
+		rm -rf docs/ && \
+		rm -rf tmp/ && \
+		docker compose down -v && \
+		complete_task "Cleanup complete!"
 
 lint:
-	@echo "Running linters (this may take a while)..."
-	@docker compose run --rm test sh -c "\
-		go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && \
-		/go/bin/golangci-lint run"
-	@echo "Linting complete!"
+	@echo "Running linters..."
+	@source scripts/common/progress.sh && \
+		status_msg "Starting code analysis" "info" && \
+		(docker compose run --rm test sh -c "\
+			go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && \
+			/go/bin/golangci-lint run" & progress_bar 15) && \
+		complete_task "Linting complete!"
 
 fmt:
 	@echo "Formatting code..."
-	@docker compose run --rm test sh -c "go fmt ./..."
-	@echo "Formatting complete!"
+	@source scripts/common/progress.sh && \
+		status_msg "Formatting code" "info" && \
+		docker compose run --rm test sh -c "go fmt ./..." && \
+		complete_task "Formatting complete!"
 
 check: fmt lint test
-	@echo "All checks passed!"
+	@source scripts/common/progress.sh && \
+		status_msg "All checks passed!" "success"
 
 install-tools:
-	@echo "Installing development tools..."
-	@rm -f .git/hooks/pre-commit
-	@ln -s ../../scripts/pre-commit .git/hooks/pre-commit
-	@chmod +x scripts/pre-commit
-	@docker compose run --rm test sh -c "\
-		chmod +x scripts/tools/install-cli.sh && \
-		./scripts/tools/install-cli.sh"
-	@echo "Tools installed successfully!"
+	@source scripts/common/progress.sh && \
+		show_logo && \
+		status_msg "Installing development tools" "info" && \
+		rm -f .git/hooks/pre-commit && \
+		ln -s ../../scripts/pre-commit .git/hooks/pre-commit && \
+		chmod +x scripts/pre-commit && \
+		(docker compose run --rm test sh -c "\
+			chmod +x scripts/tools/install-cli.sh && \
+			./scripts/tools/install-cli.sh" & progress_bar 10) && \
+		complete_task "Tools installed successfully!"
 
 pre-commit: check
-	@echo "Running pre-commit checks..."
-	@echo "Pre-commit checks passed!"
+	@source scripts/common/progress.sh && \
+		status_msg "Pre-commit checks passed!" "success"
 
 dev:
-	@echo "Starting development server..."
-	@docker compose up dev
+	@source scripts/common/progress.sh && \
+		show_logo && \
+		status_msg "Starting development server" "info" && \
+		docker compose up dev
 
-# Staging environment
 staging:
-	@echo "Starting staging server..."
-	@docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
-	@echo "Following logs in real-time (Ctrl+C to stop viewing logs)..."
-	@docker compose -f docker-compose.yml -f docker-compose.staging.yml logs -f
+	@source scripts/common/progress.sh && \
+		show_logo && \
+		status_msg "Deploying to staging environment" "info" && \
+		matrix_rain 2 && \
+		docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d && \
+		status_msg "Staging deployment complete" "success" && \
+		echo "Following logs in real-time (Ctrl+C to stop viewing logs)..." && \
+		docker compose -f docker-compose.yml -f docker-compose.staging.yml logs -f
 
-# Docker environment tests
-docker-test:
-	@echo "Running Docker recovery tests..."
-	@./scripts/test/docker-recovery.sh
-	@echo "Docker recovery tests complete!"
-
-# Quick Docker environment check
-docker-check:
-	@echo "Checking Docker environment..."
-	@source scripts/common/docker-check.sh && ensure_docker_ready
-	@echo "Docker environment check complete!"
-
-# Full system check including Docker
-system-check: docker-check check
-	@echo "Full system check complete!"
-
-# Staging setup
 setup-staging:
-	@echo "Setting up staging environment..."
-	@if [ ! -f scripts/setup/setup-env.sh ]; then \
-		echo "Error: setup-env.sh script not found"; \
-		exit 1; \
-	fi
-	@if [ ! -f scripts/common/init.sh ]; then \
-		echo "Error: init.sh script not found"; \
-		exit 1; \
-	fi
-	chmod +x scripts/setup/setup-env.sh scripts/common/init.sh
-	bash -x scripts/setup/setup-env.sh \
-		--env staging \
-		--user deploy \
-		--dir /opt/flow-control \
-		--branch staging \
-		--skip-memory-check || { \
-		echo "Error: Setup script failed. Check the error message above."; \
-		exit 1; \
-	}
+	@source scripts/common/progress.sh && \
+		show_logo && \
+		status_msg "Initializing staging environment setup" "info" && \
+		if [ ! -f scripts/setup/setup-env.sh ]; then \
+			status_msg "setup-env.sh script not found" "error"; \
+			exit 1; \
+		fi; \
+		if [ ! -f scripts/common/init.sh ]; then \
+			status_msg "init.sh script not found" "error"; \
+			exit 1; \
+		fi; \
+		chmod +x scripts/setup/setup-env.sh scripts/common/init.sh && \
+		matrix_rain 2 && \
+		status_msg "Running setup script" "info" && \
+		bash -x scripts/setup/setup-env.sh \
+			--env staging \
+			--user deploy \
+			--dir /opt/flow-control \
+			--branch staging \
+			--skip-memory-check || { \
+			status_msg "Setup script failed" "error"; \
+			exit 1; \
+		}
 
 help:
-	@echo "Available targets:"
-	@echo "  make build       - Build the binary"
-	@echo "  make run        - Run the application"
-	@echo "  make test       - Run all tests (includes dependency updates)"
-	@echo "  make test-pkg PKG=./path/to/package - Run tests for a specific package"
-	@echo "  make lint       - Run linters"
-	@echo "  make fmt        - Format code"
-	@echo "  make check      - Run all checks (fmt, lint, test)"
-	@echo "  make clean      - Clean build artifacts"
-	@echo "  make install-tools - Install git hooks"
-	@echo "  make pre-commit - Run pre-commit checks"
-	@echo "  make dev        - Run development server"
-	@echo "  make docker-test - Run Docker recovery tests"
-	@echo "  make docker-check - Quick Docker environment check"
-	@echo "  make system-check - Full system check including Docker"
-	@echo "  make setup-staging - Set up the staging environment"
-	@echo "  make help       - Show this help message"
+	@source scripts/common/progress.sh && \
+		show_logo && \
+		echo -e "\n${CYAN}Available targets:${NC}" && \
+		echo "  make build       - Build the binary" && \
+		echo "  make run        - Run the application" && \
+		echo "  make test       - Run all tests" && \
+		echo "  make lint       - Run linters" && \
+		echo "  make fmt        - Format code" && \
+		echo "  make check      - Run all checks" && \
+		echo "  make clean      - Clean build artifacts" && \
+		echo "  make install-tools - Install git hooks" && \
+		echo "  make pre-commit - Run pre-commit checks" && \
+		echo "  make dev        - Run development server" && \
+		echo "  make staging    - Deploy to staging" && \
+		echo "  make setup-staging - Set up staging environment" && \
+		echo "  make help       - Show this help message"

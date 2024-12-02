@@ -37,4 +37,5 @@ services:
 
 networks:
   flow-network:
-    name: flow-network 
+    name: flow-network
+    external: true 
