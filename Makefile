@@ -8,7 +8,7 @@ PROGRESS_FUNCTIONS := $(shell bash -c ". $(PROGRESS_SCRIPT) && declare -F | cut 
 # Environment settings
 INSTALL_DIR := $(shell pwd)
 
-.PHONY: all build run test clean lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging
+.PHONY: all build run test clean lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging verify-staging
 
 all: check build
 
@@ -27,13 +27,46 @@ clean-env:
 	@# Give the system time to fully release the ports
 	@sleep 5
 
+# Verify staging deployment
+verify-staging:
+	@bash -c ". $(PROGRESS_SCRIPT) && \
+		status_msg 'Verifying deployment...' 'info' && \
+		echo 'Waiting for services to initialize...' && \
+		sleep 5 && \
+		HOST_IP=$$(hostname -I | awk '{print $$1}') && \
+		MAX_RETRIES=12 && \
+		RETRY_COUNT=0 && \
+		while [ \$$RETRY_COUNT -lt \$$MAX_RETRIES ]; do \
+			if curl -s http://localhost:8080/health > /dev/null; then \
+				if curl -s http://localhost:9000/hooks > /dev/null; then \
+					status_msg 'Deployment verified successfully!' 'success' && \
+					echo -e '\nServices are available at:' && \
+					echo -e '  • App: http://'\$$HOST_IP':8080' && \
+					echo -e '  • Webhook: http://'\$$HOST_IP':9000' && \
+					echo -e '\nHealth check endpoints:' && \
+					echo -e '  • App: http://'\$$HOST_IP':8080/health' && \
+					echo -e '  • Webhook: http://'\$$HOST_IP':9000/hooks' && \
+					exit 0; \
+				fi; \
+			fi; \
+			RETRY_COUNT=\$$((RETRY_COUNT + 1)); \
+			echo -n '.'; \
+			sleep 5; \
+		done; \
+		status_msg 'Deployment verification failed' 'error' && \
+		echo 'Checking container logs...' && \
+		docker logs flow-control-app-1 && \
+		docker logs flow-control-webhook-1 && \
+		exit 1"
+
 staging: clean-env
 	@bash -c ". $(PROGRESS_SCRIPT) && \
 		show_logo && \
 		status_msg 'Deploying to staging environment' 'info' && \
 		docker compose -f docker-compose.staging.yml pull && \
 		docker compose -f docker-compose.staging.yml up -d && \
-		status_msg 'Staging deployment complete' 'success'"
+		status_msg 'Staging deployment complete' 'success' && \
+		$(MAKE) verify-staging"
 
 setup-staging: clean-env
 	@bash -c ". $(PROGRESS_SCRIPT) && \
