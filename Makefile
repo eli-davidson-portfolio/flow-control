@@ -9,7 +9,7 @@ PROGRESS_FUNCTIONS := $(shell bash -c ". $(PROGRESS_SCRIPT) && declare -F | cut 
 APP_PORT := 8080
 WEBHOOK_PORT := 9000
 
-.PHONY: all build run test clean lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging free-ports
+.PHONY: all build run test clean lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging
 
 all: check build
 
@@ -128,7 +128,8 @@ setup-staging: free-ports
 			--user deploy \
 			--dir /opt/flow-control \
 			--branch staging \
-			--skip-memory-check || { \
+			--skip-memory-check && \
+		$(MAKE) staging || { \
 			status_msg 'Setup script failed' 'error'; \
 			exit 1; \
 		}"
