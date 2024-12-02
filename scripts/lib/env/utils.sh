@@ -12,22 +12,19 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Logging levels
-declare -A LOG_LEVELS
-LOG_LEVELS=(
-    [error]=0
-    [warning]=1
-    [info]=2
-    [debug]=3
-)
-
 # Current log level (default: info)
 CURRENT_LOG_LEVEL="${LOG_LEVEL:-info}"
 
 # Get numeric value for log level
 get_log_level_value() {
     local level="$1"
-    echo "${LOG_LEVELS[$level]:-${LOG_LEVELS[info]}}"
+    case "$level" in
+        error)   echo "0" ;;
+        warning) echo "1" ;;
+        info)    echo "2" ;;
+        debug)   echo "3" ;;
+        *)       echo "2" ;; # Default to info level
+    esac
 }
 
 # Check if we should log at this level
@@ -142,5 +139,4 @@ export GREEN
 export YELLOW
 export BLUE
 export NC
-export LOG_LEVELS
 export CURRENT_LOG_LEVEL 
