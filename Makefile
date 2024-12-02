@@ -64,39 +64,36 @@ capture-logs:
 verify-staging:
 	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
 		log_info "Verifying deployment..." && \
-		echo "Waiting for services to initialize..." && \
-		sleep 5 && \
-		MAX_RETRIES=12 && \
-		RETRY_COUNT=0 && \
-		CONSECUTIVE_SUCCESSES=0 && \
-		REQUIRED_SUCCESSES=3 && \
-		while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do \
-			APP_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health || echo "failed") && \
+		echo "Checking container status..." && \
+		sleep 2 && \
+		APP_STATUS=$$(docker inspect -f "{{.State.Status}}" flow-control-app-1 2>/dev/null) && \
+		WEBHOOK_STATUS=$$(docker inspect -f "{{.State.Status}}" flow-control-webhook-1 2>/dev/null) && \
+		if [ "$$APP_STATUS" != "running" ] || [ "$$WEBHOOK_STATUS" != "running" ]; then \
+			log_error "Containers not running properly:" && \
+			echo "  • App Status: $$APP_STATUS" && \
+			echo "  • Webhook Status: $$WEBHOOK_STATUS" && \
+			$(MAKE) capture-logs && \
+			exit 1; \
+		fi && \
+		log_info "Containers are running. Checking health endpoints..." && \
+		APP_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health || echo "failed") && \
 			WEBHOOK_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9001/hooks || echo "failed") && \
-			if [ "$$APP_HEALTH" = "200" ] && [ "$$WEBHOOK_HEALTH" = "200" ]; then \
-				CONSECUTIVE_SUCCESSES=$$((CONSECUTIVE_SUCCESSES + 1)); \
-				if [ $$CONSECUTIVE_SUCCESSES -ge $$REQUIRED_SUCCESSES ]; then \
-					log_info "Deployment verified successfully!" && \
-					echo -e "\nServices are available at:" && \
-					echo -e "  • App: http://localhost:8080" && \
-					echo -e "  • Webhook: http://localhost:9001" && \
-					echo -e "\nHealth check endpoints:" && \
-					echo -e "  • App: http://localhost:8080/health ($$APP_HEALTH)" && \
-					echo -e "  • Webhook: http://localhost:9001/hooks ($$WEBHOOK_HEALTH)" && \
-					exit 0; \
-				fi; \
-				echo -n "+"; \
-			else \
-				CONSECUTIVE_SUCCESSES=0; \
-				log_debug "Health check status - App: $$APP_HEALTH, Webhook: $$WEBHOOK_HEALTH"; \
-				echo -n "."; \
-			fi; \
-			RETRY_COUNT=$$((RETRY_COUNT + 1)); \
-			sleep 5; \
-		done; \
-		log_error "Deployment verification failed" && \
+		echo "Health check status:" && \
+		echo "  • App: $$APP_HEALTH" && \
+		echo "  • Webhook: $$WEBHOOK_HEALTH" && \
+		if [ "$$APP_HEALTH" = "200" ] && [ "$$WEBHOOK_HEALTH" = "200" ]; then \
+			log_info "Deployment verified successfully!" && \
+			echo -e "\nServices are available at:" && \
+			echo -e "  • App: http://localhost:8080" && \
+			echo -e "  • Webhook: http://localhost:9001" && \
+			echo -e "\nHealth check endpoints:" && \
+			echo -e "  • App: http://localhost:8080/health ($$APP_HEALTH)" && \
+			echo -e "  • Webhook: http://localhost:9001/hooks ($$WEBHOOK_HEALTH)" && \
+			exit 0; \
+		fi && \
+		log_error "Health checks failed" && \
 		$(MAKE) capture-logs && \
-		log_warning "Services failed to stabilize. Check logs in logs/deploy-* directory" && \
+		log_warning "Services are running but health checks failed. Check logs in logs/deploy-* directory" && \
 		exit 1'
 
 staging: clean-env ensure-ports
