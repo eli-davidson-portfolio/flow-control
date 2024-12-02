@@ -147,25 +147,6 @@ install_packages() {
         log_info "Docker already installed"
     fi
     
-    # Detect OS
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS - use Homebrew
-        if ! command -v brew &> /dev/null; then
-            log_error "Homebrew is required but not installed. Please install Homebrew first: https://brew.sh"
-            exit 1
-        fi
-        
-        # Install macOS packages
-        local packages=(
-            git
-            jq
-            curl
-            sqlite
-            nginx
-            webhook
-        )
-        
-        for pkg in "${packages[@]}"; do
     # Install other required packages
     local packages=(
         git
@@ -177,8 +158,22 @@ install_packages() {
         ufw
     )
     
-    apt-get update
-    apt-get install -y "${packages[@]}"
+    # Install packages based on OS
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS - use Homebrew
+        if ! command -v brew &> /dev/null; then
+            log_error "Homebrew is required but not installed. Please install Homebrew first: https://brew.sh"
+            exit 1
+        fi
+        
+        for pkg in "${packages[@]}"; do
+            brew install "$pkg" || true
+        done
+    else
+        # Assume Debian/Ubuntu
+        apt-get update
+        apt-get install -y "${packages[@]}"
+    fi
 }
 
 # Setup deploy user
