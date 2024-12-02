@@ -13,11 +13,12 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Logging levels
-declare -A LOG_LEVELS=(
-    ["error"]=0
-    ["warning"]=1
-    ["info"]=2
-    ["debug"]=3
+declare -A LOG_LEVELS
+LOG_LEVELS=(
+    [error]=0
+    [warning]=1
+    [info]=2
+    [debug]=3
 )
 
 # Current log level (default: info)
