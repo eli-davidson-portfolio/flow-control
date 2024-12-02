@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"time"
 )
 
 // Port represents a connection point for messages
@@ -67,4 +68,24 @@ func (q QualityOfService) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+// PortMetrics provides port-specific metrics
+type PortMetrics struct {
+	MessagesIn   int64     `json:"messages_in"`
+	MessagesOut  int64     `json:"messages_out"`
+	BytesIn      int64     `json:"bytes_in"`
+	BytesOut     int64     `json:"bytes_out"`
+	LastMessage  time.Time `json:"last_message"`
+	ErrorCount   int64     `json:"error_count"`
+	Backpressure float64   `json:"backpressure"`
+}
+
+// PortStatus represents the current state of a port
+type PortStatus struct {
+	Connected    bool      `json:"connected"`
+	BufferSize   int       `json:"buffer_size"`
+	BufferUsage  float64   `json:"buffer_usage"`
+	LastError    error     `json:"last_error,omitempty"`
+	LastActivity time.Time `json:"last_activity"`
 }
