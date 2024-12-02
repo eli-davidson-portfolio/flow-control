@@ -100,26 +100,26 @@ verify-staging:
 		exit 1'
 
 staging: clean-env ensure-ports
-	@bash -c "source $(LIB_DIR)/env/utils.sh && \
+	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
 		source $(LIB_DIR)/docker/manager.sh && \
-		log_info 'Deploying to staging environment' && \
+		log_info "Deploying to staging environment" && \
 		if ! docker compose -f docker-compose.staging.yml pull; then \
-			log_error 'Failed to pull images' && exit 1; \
+			log_error "Failed to pull images" && exit 1; \
 		fi && \
-		log_info 'Starting services...' && \
+		log_info "Starting services..." && \
 		if ! docker compose -f docker-compose.staging.yml up -d --build; then \
-			log_error 'Failed to start services' && \
+			log_error "Failed to start services" && \
 			$(MAKE) capture-logs && \
 			exit 1; \
 		fi && \
-		log_info 'Services started, waiting for initialization...' && \
+		log_info "Services started, waiting for initialization..." && \
 		sleep 5 && \
 		docker compose -f docker-compose.staging.yml ps && \
-		log_info 'Staging deployment complete' && \
+		log_info "Staging deployment complete" && \
 		if ! $(MAKE) verify-staging; then \
-			log_warning "Verification failed, but services may still be running. Check logs and try again if needed."; \
+			log_warning "Verification failed, but services may still be running. Check logs and try again if needed." && \
 			exit 1; \
-		fi"
+		fi'
 
 setup-staging: staging
 	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
