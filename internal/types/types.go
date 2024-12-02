@@ -4,8 +4,17 @@ package types
 
 import "time"
 
-// Fields represents structured logging fields
-type Fields map[string]interface{}
+// Schema represents a data type schema for Flow Control
+type Schema interface {
+	// Validate checks if the given data conforms to the schema
+	Validate(data interface{}) error
+
+	// GetType returns the schema type identifier
+	GetType() string
+
+	// GetVersion returns the schema version
+	GetVersion() string
+}
 
 // Logger defines the interface for logging operations
 type Logger interface {
@@ -14,6 +23,9 @@ type Logger interface {
 	Error(msg string, err error, fields Fields)
 	Warn(msg string, fields Fields)
 }
+
+// Fields represents a set of key-value pairs for structured logging
+type Fields map[string]interface{}
 
 // RuntimeFlow represents a flow configuration and its runtime state
 type RuntimeFlow struct {
