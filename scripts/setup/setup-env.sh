@@ -426,6 +426,26 @@ setup_git() {
     log_info "Repository setup complete"
 }
 
+# Start application
+start_application() {
+    local base_dir="$1"
+    
+    log_info "Starting application..."
+    
+    cd "$base_dir"
+    make staging
+    
+    # Wait for application to start
+    sleep 5
+    
+    # Check if application is running
+    if curl -s http://localhost:8080/health | grep -q "ok"; then
+        log_info "Application started successfully"
+    else
+        log_warn "Application may not have started properly. Check logs for details."
+    fi
+}
+
 # Main setup function
 main() {
     # Parse arguments
@@ -445,10 +465,14 @@ main() {
     setup_git "$INSTALL_DIR" "$REPO" "$BRANCH"
     
     log_info "Setup completed successfully!"
+    
+    # Start the application
+    start_application "$INSTALL_DIR"
+    
     log_info "Next steps:"
     log_info "1. Add the deploy key to GitHub (shown above)"
     log_info "2. Configure environment variables in $INSTALL_DIR/.env.$ENV"
-    log_info "3. Start the application with: cd $INSTALL_DIR && docker-compose up -d"
+    log_info "3. The application should now be running. Check status with: curl http://localhost:8080/health"
 }
 
 # Run main function if script is executed directly
