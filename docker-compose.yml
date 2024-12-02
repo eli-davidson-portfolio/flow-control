@@ -15,6 +15,7 @@ services:
       go install github.com/swaggo/swag/cmd/swag@latest &&
       go mod download &&
       go mod tidy &&
+      cd /app &&
       swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal &&
       air -c .air.toml"
     environment:
@@ -42,6 +43,7 @@ services:
       go install github.com/swaggo/swag/cmd/swag@latest &&
       go mod download &&
       go mod tidy &&
+      cd /app &&
       make"
 
 volumes:

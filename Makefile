@@ -13,6 +13,7 @@ build: docs
 docs:
 	@echo "Generating API documentation..."
 	@docker compose run --rm test sh -c "\
+		cd /app && \
 		go install github.com/swaggo/swag/cmd/swag@latest && \
 		export PATH=/go/bin:$$PATH && \
 		swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal"
