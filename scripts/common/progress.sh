@@ -6,6 +6,9 @@ if [ -z "$BASH_VERSION" ]; then
     exit 1
 fi
 
+# Make functions available to subshells
+set -a
+
 # ANSI color codes
 BLACK='\033[0;30m'
 RED='\033[0;31m'
@@ -17,8 +20,9 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m'
 
-# ShadowLab ASCII art
+# Clear terminal and show ShadowLab ASCII art
 show_logo() {
+    clear
     echo -e "${PURPLE}"
     cat << "EOF"
  ███████╗██╗  ██╗ █████╗ ██████╗  ██████╗ ██╗    ██╗██╗      █████╗ ██████╗ 
@@ -52,7 +56,6 @@ progress_bar() {
     local width=50
     local progress=0
     local step=$((100/$width))
-    local sleep_duration=$(awk "BEGIN {print $duration/100}")
     
     echo -ne "\n"
     while [ $progress -le 100 ]; do
@@ -102,32 +105,13 @@ complete_task() {
     echo -e " $msg${NC}"
 }
 
-# Matrix-style rain effect
-matrix_rain() {
-    local duration=$1
-    local end=$((SECONDS+duration))
-    local chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()"
-    
-    while [ $SECONDS -lt $end ]; do
-        echo -ne "${GREEN}${chars:RANDOM%${#chars}:1}${NC}"
-        sleep 0.01
-    done
-    echo
-}
-
-# Define all functions before exporting
-declare -fx show_logo
-declare -fx spinner
-declare -fx progress_bar
-declare -fx status_msg
-declare -fx complete_task
-declare -fx matrix_rain
+# Turn off automatic exports
+set +a
 
 # If script is being run directly, show demo
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     show_logo
     status_msg "Running demo..." "info"
-    matrix_rain 2
     (sleep 5 &) && progress_bar 5
     complete_task "Demo complete!"
 fi 
