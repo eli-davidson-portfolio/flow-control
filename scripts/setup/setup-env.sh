@@ -431,21 +431,20 @@ setup_git() {
     
     # Create parent directory if it doesn't exist
     mkdir -p "$(dirname "$base_dir")"
-    cd "$(dirname "$base_dir")"
     
-    # Clone repository
+    # Clone repository directly into target directory
     log_info "Cloning repository..."
-    git clone -b "$branch" "$repo" "$(basename "$base_dir")" || {
+    git clone -b "$branch" "$repo" "$base_dir" || {
         cd "$current_dir"
         log_error "Failed to clone repository. Please check your SSH access and try again."
         return 1
     }
     
-    # Return to original directory
-    cd "$current_dir"
-    
     # Set permissions
     chown -R "$USER:$USER" "$base_dir"
+    
+    # Return to original directory
+    cd "$current_dir"
     
     log_info "Repository setup complete"
 }
