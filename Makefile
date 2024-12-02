@@ -32,7 +32,11 @@ clean-env:
 		echo "Cleaning up environment..." && \
 		docker_stop_all && \
 		docker_remove_all && \
-		docker_clean_networks && \
+		docker_clean_networks'
+
+# Helper target to ensure ports are free
+ensure-ports:
+	@bash -c 'source $(LIB_DIR)/ports/manager.sh && \
 		free_ports 8080 9001 && \
 		if ! wait_for_port 8080 10 2 || ! wait_for_port 9001 10 2; then \
 			echo "Standard cleanup failed, attempting force cleanup..." && \
@@ -80,21 +84,15 @@ verify-staging:
 			exit 1; \
 		}'
 
-staging: clean-env
+staging: clean-env ensure-ports
 	@bash -c "source $(LIB_DIR)/env/utils.sh && \
-		source $(LIB_DIR)/ports/manager.sh && \
 		log_info 'Deploying to staging environment' && \
-		free_ports 8080 9001 && \
-		if ! wait_for_port 8080 10 2 || ! wait_for_port 9001 10 2; then \
-			log_error 'Failed to free required ports' && \
-			exit 1; \
-		fi && \
 		docker compose -f docker-compose.staging.yml pull && \
 		docker compose -f docker-compose.staging.yml up -d && \
 		log_info 'Staging deployment complete' && \
 		$(MAKE) verify-staging"
 
-setup-staging: clean-env
+setup-staging: staging
 	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
 		log_info "Initializing staging environment setup" && \
 		if [ ! -f scripts/setup/setup-env.sh ]; then \
@@ -112,8 +110,7 @@ setup-staging: clean-env
 			--user deploy \
 			--dir $(INSTALL_DIR) \
 			--branch staging \
-			--skip-memory-check && \
-		$(MAKE) staging || { \
+			--skip-memory-check || { \
 			log_error "Setup script failed"; \
 			exit 1; \
 		}'
