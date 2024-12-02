@@ -14,6 +14,8 @@ clean-env:
 	@echo "Cleaning up environment..."
 	@docker compose down -v >/dev/null 2>&1 || true
 	@docker compose -f docker-compose.yml -f docker-compose.staging.yml down -v >/dev/null 2>&1 || true
+	@docker rm -f flow-control-app-1 flow-control-webhook-1 2>/dev/null || true
+	@docker network rm flow-network 2>/dev/null || true
 	@docker network create flow-network 2>/dev/null || true
 	@sleep 2  # Give Docker time to cleanup
 
@@ -21,6 +23,7 @@ staging: clean-env
 	@bash -c ". $(PROGRESS_SCRIPT) && \
 		show_logo && \
 		status_msg 'Deploying to staging environment' 'info' && \
+		docker compose -f docker-compose.staging.yml pull && \
 		docker compose -f docker-compose.staging.yml up -d && \
 		status_msg 'Staging deployment complete' 'success'"
 
