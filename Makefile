@@ -33,11 +33,11 @@ clean-env:
 		docker_stop_all && \
 		docker_remove_all && \
 		docker_clean_networks && \
-		free_ports 8080 9000 && \
-		if ! wait_for_port 8080 10 2 || ! wait_for_port 9000 10 2; then \
+		free_ports 8080 9001 && \
+		if ! wait_for_port 8080 10 2 || ! wait_for_port 9001 10 2; then \
 			echo "Standard cleanup failed, attempting force cleanup..." && \
 			docker_force_cleanup && \
-			if ! wait_for_port 8080 10 2 || ! wait_for_port 9000 10 2; then \
+			if ! wait_for_port 8080 10 2 || ! wait_for_port 9001 10 2; then \
 				echo "Failed to free ports even after force cleanup" && \
 				exit 1; \
 			fi; \
@@ -84,8 +84,8 @@ staging: clean-env
 	@bash -c "source $(LIB_DIR)/env/utils.sh && \
 		source $(LIB_DIR)/ports/manager.sh && \
 		log_info 'Deploying to staging environment' && \
-		free_ports 8080 9000 && \
-		if ! wait_for_port 8080 10 2 || ! wait_for_port 9000 10 2; then \
+		free_ports 8080 9001 && \
+		if ! wait_for_port 8080 10 2 || ! wait_for_port 9001 10 2; then \
 			log_error 'Failed to free required ports' && \
 			exit 1; \
 		fi && \

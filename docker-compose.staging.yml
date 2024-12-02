@@ -4,6 +4,10 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
+      cache_from:
+        - type=local,src=/tmp/.buildx-cache
+      cache_to:
+        - type=local,dest=/tmp/.buildx-cache-new,mode=max
     env_file: .env.staging
     environment:
       - GO_ENV=staging
@@ -41,12 +45,12 @@ services:
       - ./config/hooks.json:/etc/webhook/hooks.json
       - ./scripts:/app/scripts
     environment:
-      - PORT=${WEBHOOK_PORT:-9000}
-    command: -hooks /etc/webhook/hooks.json -verbose -port ${WEBHOOK_PORT:-9000}
+      - PORT=${WEBHOOK_PORT:-9001}
+    command: -hooks /etc/webhook/hooks.json -verbose -port ${WEBHOOK_PORT:-9001}
     network_mode: host
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/hooks"]
+      test: ["CMD", "curl", "-f", "http://localhost:9001/hooks"]
       interval: 10s
       timeout: 5s
       retries: 3
