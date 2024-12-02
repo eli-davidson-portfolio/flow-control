@@ -79,7 +79,8 @@ system-check: docker-check check
 # Staging setup
 setup-staging:
 	@echo "Setting up staging environment..."
-	./scripts/setup/setup-env.sh \
+	@chmod +x scripts/setup/setup-env.sh
+	@bash scripts/setup/setup-env.sh \
 		--env staging \
 		--user deploy \
 		--dir /opt/flow-control \
