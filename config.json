@@ -4,10 +4,11 @@
     "port": 8080
   },
   "database": {
-    "path": "data/flows.db"
+    "path": "/app/data/flows.db"
   },
   "logging": {
-    "level": "info",
-    "format": "console"
+    "level": "debug",
+    "format": "json",
+    "file": "/app/logs/flow.log"
   }
 } 
