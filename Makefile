@@ -12,11 +12,9 @@ build: docs
 
 docs:
 	@echo "Generating API documentation..."
-	@if ! command -v swag > /dev/null; then \
-		echo "Installing swag..."; \
-		go install github.com/swaggo/swag/cmd/swag@latest; \
-	fi
-	@swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal
+	@chmod +x scripts/tools/install-cli.sh
+	@./scripts/tools/install-cli.sh
+	@$(HOME)/go/bin/swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal
 	@echo "Documentation generation complete!"
 
 run: check
@@ -59,10 +57,8 @@ install-tools:
 	@echo "Installing development tools..."
 	@cp scripts/pre-commit .git/hooks/pre-commit
 	@chmod +x .git/hooks/pre-commit
-	@if ! command -v swag > /dev/null; then \
-		echo "Installing swag..."; \
-		go install github.com/swaggo/swag/cmd/swag@latest; \
-	fi
+	@chmod +x scripts/tools/install-cli.sh
+	@./scripts/tools/install-cli.sh
 	@echo "Tools installed successfully!"
 
 pre-commit: check
