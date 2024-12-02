@@ -826,3 +826,97 @@ This organization:
    - Memory usage monitoring
    - Container status checks
    ```
+
+## Script Organization
+
+1. Library Structure
+   ```
+   scripts/lib/
+   ├── docker/
+   │   └── manager.sh    # Docker operations
+   ├── ports/
+   │   └── manager.sh    # Port management
+   ├── env/
+   │   └── utils.sh      # Common utilities
+   └── test/
+       ├── test_utils.sh # Test framework
+       ├── docker_test.sh
+       └── ports_test.sh
+   ```
+
+2. Testing Framework
+   ```bash
+   # Example test case
+   describe "port_is_in_use"
+   it "returns false when port is free"
+   if port_is_in_use "${test_port}"; then
+       fail "Port ${test_port} reported as in use but should be free"
+   fi
+   ```
+
+3. Docker Management
+   ```bash
+   # Platform-specific Docker restart
+   if [ "${platform}" = "Darwin" ]; then
+       # macOS: Restart Docker Desktop
+       osascript -e 'quit app "Docker Desktop"'
+       open -a Docker
+   else
+       # Linux: Restart Docker daemon
+       systemctl restart docker
+   fi
+   ```
+
+4. Port Management
+   ```bash
+   # Free a port with retries
+   free_port() {
+       local port="$1"
+       local max_attempts="${2:-3}"
+       while port_is_in_use "${port}"; do
+           kill_port_process "${port}" false
+           if port_is_in_use "${port}"; then
+               kill_port_process "${port}" true
+           fi
+       done
+   }
+   ```
+
+## Deployment Process
+
+1. Environment Setup
+   ```bash
+   # Clean environment
+   make clean-env
+   
+   # Force cleanup if needed
+   make clean-env-force
+   ```
+
+2. Staging Deployment
+   ```bash
+   # Deploy to staging
+   make setup-staging
+   
+   # Verify deployment
+   curl http://localhost:8080/health
+   curl http://localhost:9000/hooks
+   ```
+
+3. Webhook Configuration
+   ```json
+   {
+     "id": "deploy",
+     "execute-command": "/app/scripts/deploy.sh",
+     "trigger-rule": {
+       "match": {
+         "type": "value",
+         "value": "staging",
+         "parameter": {
+           "source": "payload",
+           "name": "environment"
+         }
+       }
+     }
+   }
+   ```
