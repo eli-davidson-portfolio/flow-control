@@ -58,14 +58,14 @@ verify-staging:
 		RETRY_COUNT=0 && \
 		while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do \
 			if curl -s http://localhost:8080/health > /dev/null; then \
-				if curl -s http://localhost:9000/hooks > /dev/null; then \
+				if curl -s http://localhost:9001/hooks > /dev/null; then \
 					log_info "Deployment verified successfully!" && \
 					echo -e "\nServices are available at:" && \
 					echo -e "  • App: http://$$HOST_IP:8080" && \
-					echo -e "  • Webhook: http://$$HOST_IP:9000" && \
+					echo -e "  • Webhook: http://$$HOST_IP:9001" && \
 					echo -e "\nHealth check endpoints:" && \
 					echo -e "  • App: http://$$HOST_IP:8080/health" && \
-					echo -e "  • Webhook: http://$$HOST_IP:9000/hooks" && \
+					echo -e "  • Webhook: http://$$HOST_IP:9001/hooks" && \
 					exit 0; \
 				fi; \
 			fi; \
