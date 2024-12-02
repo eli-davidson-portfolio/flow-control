@@ -7,29 +7,30 @@ all: check build
 
 build: docs
 	@echo "Building application..."
-	@./scripts/build.sh
+	@docker compose run --rm test go build -o flow-control ./cmd/flowcontrol
 	@echo "Build complete!"
 
 docs:
 	@echo "Generating API documentation..."
-	@chmod +x scripts/tools/install-cli.sh
-	@./scripts/tools/install-cli.sh
-	@$(HOME)/go/bin/swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal
+	@docker compose run --rm test sh -c "\
+		chmod +x scripts/tools/install-cli.sh && \
+		./scripts/tools/install-cli.sh && \
+		$(HOME)/go/bin/swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal"
 	@echo "Documentation generation complete!"
 
 run: check
 	@echo "Starting application..."
-	@go run cmd/flowcontrol/main.go
+	@docker compose up dev
 
 # Test includes dependency management (go mod tidy)
 test:
 	@echo "Running tests (this may take a while)..."
-	@./scripts/test.sh
+	@docker compose run --rm test go test ./...
 	@echo "Tests complete!"
 
 test-pkg:
 	@echo "Testing package $(PKG)..."
-	@./scripts/test.sh -p $(PKG)
+	@docker compose run --rm test go test $(PKG)
 	@echo "Package tests complete!"
 
 clean:
@@ -42,12 +43,12 @@ clean:
 
 lint:
 	@echo "Running linters (this may take a while)..."
-	@./scripts/lint.sh
+	@docker compose run --rm test golangci-lint run
 	@echo "Linting complete!"
 
 fmt:
 	@echo "Formatting code..."
-	@./scripts/fmt.sh
+	@docker compose run --rm test go fmt ./...
 	@echo "Formatting complete!"
 
 check: fmt lint test
@@ -57,8 +58,9 @@ install-tools:
 	@echo "Installing development tools..."
 	@cp scripts/pre-commit .git/hooks/pre-commit
 	@chmod +x .git/hooks/pre-commit
-	@chmod +x scripts/tools/install-cli.sh
-	@./scripts/tools/install-cli.sh
+	@docker compose run --rm test sh -c "\
+		chmod +x scripts/tools/install-cli.sh && \
+		./scripts/tools/install-cli.sh"
 	@echo "Tools installed successfully!"
 
 pre-commit: check
