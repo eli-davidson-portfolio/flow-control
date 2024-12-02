@@ -12,9 +12,8 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
     ports:
-      - "8080:8080"
-    networks:
-      - flow-network
+      - "${APP_PORT:-8080}:8080"
+    network_mode: host
     restart: unless-stopped
     deploy:
       resources:
@@ -29,10 +28,9 @@ services:
       - ./config/hooks.json:/etc/webhook/hooks.json
       - ./scripts:/app/scripts
     ports:
-      - "9000:9000"
+      - "${WEBHOOK_PORT:-9000}:9000"
     command: -hooks /etc/webhook/hooks.json -verbose
-    networks:
-      - flow-network
+    network_mode: host
     restart: unless-stopped
 
 networks:

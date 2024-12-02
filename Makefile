@@ -20,7 +20,12 @@ clean-env:
 	@docker rm -f flow-control-app-1 flow-control-webhook-1 2>/dev/null || true
 	@docker network rm flow-network 2>/dev/null || true
 	@docker network create flow-network 2>/dev/null || true
-	@sleep 2  # Give Docker time to cleanup
+	@# Force kill any process using our ports
+	@echo "Releasing ports..."
+	@(ss -lptn 'sport = :8080' | grep -oP '(?<=pid=).*?(?=,|$)' | xargs kill -9) >/dev/null 2>&1 || true
+	@(ss -lptn 'sport = :9000' | grep -oP '(?<=pid=).*?(?=,|$)' | xargs kill -9) >/dev/null 2>&1 || true
+	@# Give the system time to fully release the ports
+	@sleep 5
 
 staging: clean-env
 	@bash -c ". $(PROGRESS_SCRIPT) && \
