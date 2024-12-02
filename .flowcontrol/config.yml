@@ -39,7 +39,7 @@ checks:
 environment:
   docker:
     images:
-      - golang:1.22.9-bullseye
+      - golang:1.22.1-bullseye
       - swaggerapi/swagger-ui
     volumes:
       - go-cache:/go
