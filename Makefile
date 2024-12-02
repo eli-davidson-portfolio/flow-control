@@ -35,40 +35,31 @@ clean-env-force:
 
 # Helper target to ensure clean environment
 clean-env:
-	@bash -c ". $(PROGRESS_SCRIPT) && \
-		echo 'Cleaning up environment...' && \
-		# Stop and remove all containers first \
+	@bash -c 'source $(PROGRESS_SCRIPT) && \
+		echo "Cleaning up environment..." && \
 		docker compose down -v >/dev/null 2>&1 || true && \
 		docker compose -f docker-compose.yml -f docker-compose.staging.yml down -v >/dev/null 2>&1 || true && \
 		docker rm -f flow-control-app-1 flow-control-webhook-1 2>/dev/null || true && \
-		# Remove and recreate network \
 		docker network rm flow-network 2>/dev/null || true && \
 		docker network create flow-network 2>/dev/null || true && \
-		# Kill any processes using our ports (try multiple methods) \
-		status_msg 'Releasing ports...' 'info' && \
-		# Method 1: Using ss \
-		(ss -lptn 'sport = :8080' | grep -oP '(?<=pid=).*?(?=,|$)' | xargs kill -9) >/dev/null 2>&1 || true && \
-		(ss -lptn 'sport = :9000' | grep -oP '(?<=pid=).*?(?=,|$)' | xargs kill -9) >/dev/null 2>&1 || true && \
-		# Method 2: Using netstat \
-		(netstat -tlpn 2>/dev/null | grep ':8080' | awk '{print $$7}' | cut -d'/' -f1 | xargs kill -9) >/dev/null 2>&1 || true && \
-		(netstat -tlpn 2>/dev/null | grep ':9000' | awk '{print $$7}' | cut -d'/' -f1 | xargs kill -9) >/dev/null 2>&1 || true && \
-		# Method 3: Using lsof \
+		status_msg "Releasing ports..." "info" && \
+		(ss -lptn "sport = :8080" | grep -oP "(?<=pid=).*?(?=,|$)" | xargs kill -9) >/dev/null 2>&1 || true && \
+		(ss -lptn "sport = :9000" | grep -oP "(?<=pid=).*?(?=,|$)" | xargs kill -9) >/dev/null 2>&1 || true && \
+		(netstat -tlpn 2>/dev/null | grep ":8080" | awk "{print \$$7}" | cut -d"/" -f1 | xargs kill -9) >/dev/null 2>&1 || true && \
+		(netstat -tlpn 2>/dev/null | grep ":9000" | awk "{print \$$7}" | cut -d"/" -f1 | xargs kill -9) >/dev/null 2>&1 || true && \
 		(lsof -ti:8080 | xargs kill -9) >/dev/null 2>&1 || true && \
 		(lsof -ti:9000 | xargs kill -9) >/dev/null 2>&1 || true && \
-		# Method 4: Using fuser \
 		(fuser -k 8080/tcp) >/dev/null 2>&1 || true && \
 		(fuser -k 9000/tcp) >/dev/null 2>&1 || true && \
-		# Give the system time to fully release the ports \
 		sleep 5 && \
-		# Verify ports are free \
-		if netstat -ln | grep -q ':8080 \|:9000 '; then \
-			status_msg 'Standard cleanup failed to free ports, attempting force cleanup...' 'warning' && \
+		if netstat -ln | grep -q ":8080 \|:9000 "; then \
+			status_msg "Standard cleanup failed to free ports, attempting force cleanup..." "warning" && \
 			$(MAKE) clean-env-force && \
-			if netstat -ln | grep -q ':8080 \|:9000 '; then \
-				status_msg 'Failed to free ports even after force cleanup' 'error' && \
+			if netstat -ln | grep -q ":8080 \|:9000 "; then \
+				status_msg "Failed to free ports even after force cleanup" "error" && \
 				exit 1; \
 			fi; \
-		fi"
+		fi'
 
 # Verify staging deployment
 verify-staging:
