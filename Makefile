@@ -78,13 +78,25 @@ system-check: docker-check check
 
 # Staging setup
 setup-staging:
-	echo "Setting up staging environment..."
+	@echo "Setting up staging environment..."
+	@if [ ! -f scripts/setup/setup-env.sh ]; then \
+		echo "Error: setup-env.sh script not found"; \
+		exit 1; \
+	fi
+	@if [ ! -f scripts/common/init.sh ]; then \
+		echo "Error: init.sh script not found"; \
+		exit 1; \
+	fi
 	chmod +x scripts/setup/setup-env.sh scripts/common/init.sh
 	bash -x scripts/setup/setup-env.sh \
 		--env staging \
 		--user deploy \
 		--dir /opt/flow-control \
-		--branch staging
+		--branch staging \
+		--skip-memory-check || { \
+		echo "Error: Setup script failed. Check the error message above."; \
+		exit 1; \
+	}
 
 help:
 	@echo "Available targets:"

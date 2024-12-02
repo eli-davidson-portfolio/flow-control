@@ -15,6 +15,7 @@ BRANCH="staging"
 DOMAIN=""
 WEBHOOK_PORT="9000"
 APP_PORT="8080"
+SKIP_MEMORY_CHECK="false"
 
 # Parse arguments
 parse_args() {
@@ -52,6 +53,10 @@ parse_args() {
                 APP_PORT="$2"
                 shift 2
                 ;;
+            --skip-memory-check)
+                SKIP_MEMORY_CHECK="true"
+                shift
+                ;;
             *)
                 log_error "Unknown option: $1"
                 exit 1
@@ -74,8 +79,13 @@ check_system_requirements() {
     local mem_total
     mem_total=$(free -m | awk '/^Mem:/{print $2}')
     if [[ $mem_total -lt 2048 ]]; then
-        log_error "Insufficient memory. Required: 2GB, Available: ${mem_total}MB"
-        exit 1
+        if [[ "$SKIP_MEMORY_CHECK" == "true" ]]; then
+            log_warn "Low memory detected. Required: 2GB, Available: ${mem_total}MB. Continuing anyway as --skip-memory-check was specified."
+        else
+            log_error "Insufficient memory. Required: 2GB, Available: ${mem_total}MB"
+            log_error "Use --skip-memory-check to override this check if you're sure about running with less memory."
+            exit 1
+        fi
     fi
     
     # Check disk space
@@ -137,6 +147,25 @@ install_packages() {
         log_info "Docker already installed"
     fi
     
+    # Detect OS
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS - use Homebrew
+        if ! command -v brew &> /dev/null; then
+            log_error "Homebrew is required but not installed. Please install Homebrew first: https://brew.sh"
+            exit 1
+        fi
+        
+        # Install macOS packages
+        local packages=(
+            git
+            jq
+            curl
+            sqlite
+            nginx
+            webhook
+        )
+        
+        for pkg in "${packages[@]}"; do
     # Install other required packages
     local packages=(
         git
