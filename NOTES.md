@@ -1,294 +1,421 @@
 # Flow Control Development Notes
 
-## Project Structure
+## Core Concepts
 
-The project is organized into the following packages:
+1. Flow-Based Programming (FBP) Principles
+   - Nodes are black boxes with well-defined interfaces
+   - Connections are first-class entities
+   - Information packets flow through connections
+   - External configuration of nodes
+   - Hierarchical network structure
+   - Asynchronous processing
 
-- `cmd/flow-control`: Main application entry point
-- `internal/config`: Configuration management
-- `internal/logger`: Structured logging
-- `internal/parser`: Flow language parser
-- `internal/server`: HTTP server and API
-- `internal/store`: Persistent storage
-- `internal/types`: Common types and interfaces
-
-## Development Workflow
-
-1. Code Organization
-   - All packages are under `internal/` to prevent external usage
-   - Common types are centralized in `types` package
-   - Each package has its own tests in `_test` package
-   - Documentation is generated automatically
-
-2. Quality Control
-   - All checks run in Docker for consistency
-   - Pre-commit hook ensures code quality
-   - Comprehensive test coverage
-   - Package documentation and examples
-
-3. Documentation
-   - API documentation with Swagger
-   - Package documentation with godoc
-   - Code examples and tests
-   - Development notes (this file)
-
-## Docker Development Environment
-
-1. Container Setup
-   - Base image: golang:1.23-alpine
-   - Development dependencies installed:
-     - gcc
-     - musl-dev
-     - sqlite-dev
-     - make
-   - Development tools:
-     - air (for hot reload)
-     - swag (for API documentation)
-     - golangci-lint (for linting)
-
-2. Volume Management
-   - Source code mounted at `/app`
-   - Go cache mounted as volume for faster builds
-   - SQLite database persisted in `data/` directory
-
-3. Configuration
-   - Environment variables:
-     - GO_ENV=development/test
-     - GOMODCACHE=/go/pkg/mod
-     - GOCACHE=/go/cache
-     - CONFIG_FILE=/app/config.json
-   - Port mapping: 8080:8080
-   - Hot reload enabled through air
-
-4. Common Commands
-   ```bash
-   # Start development server
-   docker compose up dev
-
-   # Run tests
-   docker compose run test
-
-   # Run all checks (fmt, lint, test)
-   make check
-
-   # Stop all containers
-   docker compose down
+2. Node Lifecycle
+   ```
+   Creation → Configuration → Initialization → Processing → Shutdown
+        ↑                                         |
+        └─────────────── Reconfigure ────────────┘
    ```
 
-## Configuration System
+3. Message Flow
+   ```
+   Source Node → Output Port → Connection → Input Port → Target Node
+        ↑          |                                        |
+        └──────────┴────────── Backpressure ───────────────┘
+   ```
 
-1. File-based Configuration
-   - JSON format
-   - Default path: config.json
-   - Can be overridden with CONFIG_FILE environment variable
-   - Default values provided if no file exists
+## Implementation Plan
 
-2. Configuration Structure
-   ```json
-   {
-     "server": {
-       "host": "0.0.0.0",
-       "port": 8080
-     },
-     "database": {
-       "path": "data/flows.db"
-     },
-     "logging": {
-       "level": "info",
-       "format": "console"
-     }
+1. Schema System (Phase 1 - Current)
+   ```go
+   internal/runtime/schema/
+   ├── basic.go       # Basic type schemas (string, int, etc)
+   ├── composite.go   # Struct and array schemas
+   ├── validator.go   # Schema validation logic
+   └── registry.go    # Schema type registry
+
+   // Example usage:
+   type JSONSchema struct {
+       schemaType string
+       version    string
+       validator  *gojsonschema.Schema
+   }
+
+   func (s *JSONSchema) Validate(data interface{}) error {
+       result, err := s.validator.Validate(gojsonschema.NewGoLoader(data))
+       if err != nil {
+           return err
+       }
+       if !result.Valid() {
+           return fmt.Errorf("validation failed: %v", result.Errors())
+       }
+       return nil
    }
    ```
 
-3. Validation Rules
-   - Port must be between 1 and 65535
-   - Database path must end with .db
-   - Log level must be one of: trace, debug, info, warn, error
-   - Log format must be one of: console, json
+2. Port System (Phase 2)
+   ```go
+   internal/runtime/port/
+   ├── base.go        # Base port implementation
+   ├── buffer.go      # Message buffering
+   ├── metrics.go     # Port metrics collection
+   └── connection.go  # Port connections
 
-4. Directory Management
-   - Database directory created automatically
-   - Logs directory created as needed
-   - All paths relative to workspace root
+   // Example usage:
+   type BasePort struct {
+       config    PortConfig
+       buffer    *MessageBuffer
+       metrics   *PortMetrics
+       status    *PortStatus
+       handlers  []MessageHandler
+   }
+   ```
 
-## Recent Updates
+3. Node System (Phase 3)
+   ```go
+   internal/runtime/node/
+   ├── base.go        # BaseNode implementation
+   ├── lifecycle.go   # Node lifecycle management
+   ├── ports.go       # Port management
+   └── registry.go    # Node type registry
 
-1. Docker Support
-   - Added Docker and Docker Compose configuration
-   - Created development environment with hot reload
-   - Added test environment with development tools
-   - Fixed networking issues
-   - Containerized all development commands
+   // Example usage:
+   type BaseNode struct {
+       config      NodeConfig
+       metadata    NodeMetadata
+       metrics     MetricsPort
+       logs        LogPort
+       traces      TracePort
+       inputPorts  map[string]Port
+       outputPorts map[string]Port
+   }
+   ```
 
-2. Configuration Changes
-   - Updated default host to 0.0.0.0
-   - Added configuration file support
-   - Improved validation
-   - Fixed environment variable handling
+4. Message System (Phase 4)
+   ```go
+   internal/runtime/message/
+   ├── router.go      # Message routing
+   ├── queue.go       # Message queuing
+   ├── backpressure.go # Flow control
+   └── delivery.go    # Message delivery guarantees
 
-3. Documentation
-   - Updated README with Docker instructions
-   - Added configuration documentation
-   - Added API documentation
-   - Updated development notes
+   // Example usage:
+   type MessageRouter struct {
+       routes    map[string][]string
+       nodes     map[string]Node
+       queue     *MessageQueue
+       metrics   MetricsPort
+   }
+   ```
+
+## Dependencies
+
+1. Core Dependencies
+   ```go
+   require (
+       // Metrics
+       "github.com/prometheus/client_golang" v1.18.0
+       
+       // Tracing
+       "go.opentelemetry.io/otel" v1.21.0
+       
+       // Logging
+       "go.uber.org/zap" v1.26.0
+       
+       // Schema Validation
+       "github.com/xeipuuv/gojsonschema" v1.2.0
+       
+       // Configuration
+       "github.com/mitchellh/mapstructure" v1.5.0
+   )
+   ```
+
+2. Development Tools
+   ```bash
+   # Install tools
+   go install github.com/golangci-lint/golangci-lint@latest
+   go install github.com/swaggo/swag/cmd/swag@latest
+   go install github.com/cosmtrek/air@latest
+   ```
+
+## Testing Strategy
+
+1. Unit Tests
+   ```go
+   // Schema testing
+   func TestJSONSchema_Validate(t *testing.T) {
+       schema := NewJSONSchema(`{
+           "type": "object",
+           "properties": {
+               "name": {"type": "string"},
+               "age": {"type": "integer"}
+           }
+       }`)
+       
+       // Test valid data
+       err := schema.Validate(map[string]interface{}{
+           "name": "John",
+           "age": 30,
+       })
+       require.NoError(t, err)
+       
+       // Test invalid data
+       err = schema.Validate(map[string]interface{}{
+           "name": 123,
+           "age": "invalid",
+       })
+       require.Error(t, err)
+   }
+   ```
+
+2. Integration Tests
+   ```go
+   func TestNodeMessageFlow(t *testing.T) {
+       // Create nodes
+       source := NewTestNode("source")
+       target := NewTestNode("target")
+       
+       // Connect nodes
+       router := NewMessageRouter()
+       router.RegisterNode(source)
+       router.RegisterNode(target)
+       
+       // Send message
+       msg := NewMessage("test", map[string]interface{}{
+           "data": "hello",
+       })
+       
+       err := source.Process(context.Background(), msg)
+       require.NoError(t, err)
+       
+       // Verify message received
+       received := target.LastMessage()
+       require.Equal(t, msg.Payload, received.Payload)
+   }
+   ```
 
 ## Next Steps
 
-1. Testing
-   - Add integration tests
-   - Improve test coverage
-   - Add benchmarks
+1. Immediate Tasks
+   - [ ] Implement basic Schema interface
+   - [ ] Add JSON Schema validation
+   - [ ] Create schema registry
+   - [ ] Write schema tests
 
-2. Features
-   - Flow validation
-   - Node type plugins
-   - Flow visualization
+2. Port System Tasks
+   - [ ] Design message buffer
+   - [ ] Implement backpressure
+   - [ ] Add metrics collection
+   - [ ] Create connection manager
 
-3. Documentation
-   - Add user guide
-   - Add developer guide
-   - Add architecture documentation
+3. Node System Tasks
+   - [ ] Create base node structure
+   - [ ] Implement lifecycle methods
+   - [ ] Add port management
+   - [ ] Create node registry
 
-## Package Documentation Requirements
+4. Message System Tasks
+   - [ ] Design routing system
+   - [ ] Implement message queue
+   - [ ] Add delivery guarantees
+   - [ ] Create flow control
 
-1. Package Comments
-   - Must be immediately before the package declaration with no blank lines
-   - Must start with "Package [name]" and end with a period
-   - Should be a single sentence describing the package's purpose
-   - Example:
-     ```go
-     // Package logger implements structured logging for Flow Control.
-     package logger
-     ```
+## Design Decisions
 
-2. Documentation Style
-   - Use line comments (`//`) for package documentation
-   - Keep it simple and descriptive
-   - Focus on what the package provides, not implementation details
-   - Additional documentation can be added in doc.go files
+1. Schema System
+   - Use JSON Schema for validation
+   - Support custom validators
+   - Include version control
+   - Enable schema evolution
 
-3. Common Mistakes
-   - Blank line between comment and package declaration
-   - Missing period at end of comment
-   - Not starting with "Package [name]"
-   - Using block comments (`/* */`) for package documentation
+2. Port System
+   - Ring buffer for messages
+   - Configurable buffer size
+   - Automatic backpressure
+   - Metric collection
 
-## API Documentation Requirements
+3. Node System
+   - Pluggable architecture
+   - Hot reload support
+   - Resource management
+   - State persistence
 
-1. Swagger Annotations
-   - Use `@Description` for detailed type descriptions
-   - Use `@example` for field examples
-   - Place annotations in the type's doc comment
-   - Example:
-     ```go
-     // UserConfig represents a user configuration.
-     // @Description A user configuration contains settings for a single user.
-     type UserConfig struct {
-         // Username of the user
-         // @example "johndoe"
-         Username string `json:"username"`
-     }
-     ```
+4. Message System
+   - At-least-once delivery
+   - Priority queuing
+   - Dead letter queues
+   - Message tracing
 
-2. Documentation Location
-   - API types should be defined in a single location
-   - Avoid duplicate type definitions with Swagger annotations
-   - Use type aliases or imports to reference types
-   - Example:
-     ```go
-     // Re-export types from central location
-     type RuntimeFlow = types.RuntimeFlow
-     type FlowEvent = types.FlowEvent
-     ```
+## Configuration
 
-3. Common Mistakes
-   - Duplicate type definitions with annotations
-   - Missing or inconsistent annotations
-   - Annotations in wrong location
-   - Redundant type documentation
+```json
+{
+  "runtime": {
+    "schema_validation": true,
+    "message_buffer_size": 1000,
+    "max_concurrent_nodes": 100,
+    "node_shutdown_timeout": "30s"
+  },
+  "telemetry": {
+    "metrics_interval": "10s",
+    "trace_sample_rate": 0.1,
+    "log_format": "json"
+  },
+  "nodes": {
+    "default_resources": {
+      "cpu_limit": 1.0,
+      "memory_limit": "256Mi",
+      "max_concurrency": 10
+    }
+  }
+}
+```
 
-## Logging System
+# Development Process
 
-1. File-based Logging
-   - Logs are written to `logs/flow-control.log` by default
-   - JSON-formatted log entries for structured logging
-   - Log rotation with configurable settings:
-     - Maximum file size (default: 100MB)
-     - Maximum number of backups (default: 5)
-     - Maximum age of files (default: 30 days)
-     - Compression of old files (enabled by default)
+## Code Organization
 
-2. Log Levels
-   - DEBUG: Detailed information for debugging
-   - INFO: General operational information
-   - WARN: Warning messages for potential issues
-   - ERROR: Error conditions that need attention
+### Type Definitions
+All type definitions should be in the `internal/types` package, organized by domain:
+- `types.go` - Common types and interfaces
+- `runtime.go` - Runtime and flow execution types
+- `observability.go` - Metrics, logging, and tracing types
+- `resources.go` - Resource management types
 
-3. Structured Fields
-   - All log entries support structured fields
-   - Component-based logging with `WithComponent`
-   - Timestamp in UTC format
-   - Error details included when relevant
+This centralization makes it easier to:
+- Maintain type consistency
+- Avoid circular dependencies
+- Track type changes
+- Prevent duplicate definitions
 
-4. Example Log Entry:
-   ```json
-   {
-     "time": "2024-01-20T15:04:05Z",
-     "level": "INFO",
-     "message": "Server starting",
-     "fields": {
-       "component": "server",
-       "port": 8080
-     }
-   }
-   ```
+### Package Structure
+- `internal/` - Internal packages
+  - `types/` - All type definitions
+  - `runtime/` - Runtime implementation
+  - `server/` - HTTP server implementation
+  - `store/` - Data storage implementation
+  - etc.
 
-5. Configuration
-   - Configurable through `logger.Config`
-   - Default configuration provided
-   - Can be customized per instance
-   - Log directory created automatically
+## Development Workflow
 
-## Log Analysis
+1. **Local Development**
+   - Run development server: `make dev`
+   - Format code: `make fmt`
+   - Run linters: `make lint`
+   - Run tests: `make test`
+   - Test specific package: `make test-pkg PKG=./path/to/package`
 
-1. Query Capabilities
-   - Search by time range
-   - Filter by log level
-   - Filter by component
-   - Search message content
-   - Combine multiple criteria
+2. **Pre-commit Checks**
+   The pre-commit hook automatically runs:
+   - Code formatting
+   - Linting
+   - Tests
+   Install hooks with: `make install-tools`
 
-2. Reading Methods
-   - `ReadLogs`: Query logs with specific criteria
-   - `ReadRecentLogs`: Get most recent N entries
-   - `TailLogs`: Stream new log entries in real-time
+3. **CI/CD Pipeline**
+   The CI pipeline runs in GitHub Actions and includes:
+   - Code formatting check
+   - Linting
+   - Tests
+   - Build verification
+   All steps run in Docker for consistency with local development.
 
-3. Example Usage:
-   ```go
-   // Read logs from the last hour with errors
-   logs, err := logger.ReadLogs(LogQuery{
-       StartTime: time.Now().Add(-1 * time.Hour),
-       Level:     "error",
-   })
+4. **Script Organization**
+   - `scripts/common/` - Common environment and utilities
+   - `scripts/build/` - Build and code quality tools
+   - `scripts/test/` - Test runners and setup
+   - `scripts/dev/` - Development server and tools
+   - `scripts/tools/` - Tool installation and setup
 
-   // Get last 100 log entries
-   recent, err := logger.ReadRecentLogs(100)
+5. **Docker Usage**
+   - Development container: `golang:1.21.8-bullseye`
+   - All commands run through Docker for consistency
+   - Common dependencies managed in docker-env.sh
+   - Persistent Go module cache through Docker volumes
 
-   // Stream logs in real-time
-   stop := make(chan struct{})
-   go logger.TailLogs(os.Stdout, stop)
-   ```
+6. **Code Quality**
+   - Go formatting with `gofmt`
+   - Linting with `golangci-lint`
+   - Tests must pass in Docker environment
+   - Pre-commit hooks ensure quality before commits
 
-4. Query Parameters
-   - StartTime: Beginning of time range
-   - EndTime: End of time range
-   - Level: Log level filter (debug, info, warn, error)
-   - Component: Filter by component name
-   - Contains: Search text in message content
+7. **Dependencies**
+   - Managed through `go.mod`
+   - Vendored dependencies for reproducible builds
+   - Docker environment includes common system packages
 
-5. Use Cases
-   - Debugging application issues
-   - Monitoring system behavior
-   - Auditing operations
-   - Performance analysis
-   - Error tracking and investigation
+8. **Documentation**
+   - API docs generated with Swagger
+   - Package documentation with godoc
+   - Source code browser for exploration
+
+# Type Organization
+
+## Core Types
+
+All type definitions are centralized in the `internal/types` package, organized by domain:
+
+1. `runtime.go` - Package documentation and overview
+2. `schema.go` - Data validation and type schemas
+3. `node.go` - Flow processing nodes and configuration
+4. `port.go` - Message ports and routing
+5. `message.go` - Data packets and delivery
+6. `resources.go` - Resource management and limits
+7. `observability.go` - Metrics, logging, and tracing
+8. `types.go` - Common interfaces and utilities
+
+This organization:
+- Keeps related types together
+- Makes dependencies clear
+- Prevents circular imports
+- Makes changes easier to track
+- Simplifies documentation
+
+## Type Design Principles
+
+1. **Single Responsibility**
+   - Each type file focuses on one domain
+   - Types are grouped by their role in the system
+   - Clear separation of concerns
+
+2. **Interface Segregation**
+   - Interfaces are small and focused
+   - Implementation details hidden
+   - Easy to mock for testing
+
+3. **Dependency Management**
+   - Minimal dependencies between types
+   - Clear dependency direction
+   - No circular dependencies
+
+4. **Documentation**
+   - Each type file has package documentation
+   - Interface methods documented
+   - Examples provided where helpful
+
+5. **Versioning**
+   - Types support versioning where needed
+   - Backward compatibility maintained
+   - Migration paths documented
+
+## Implementation Guidelines
+
+1. **New Types**
+   - Add to appropriate domain file
+   - Follow existing patterns
+   - Update package documentation
+
+2. **Type Changes**
+   - Consider backward compatibility
+   - Update all implementations
+   - Add migration notes if needed
+
+3. **Testing**
+   - Test interfaces thoroughly
+   - Provide test helpers
+   - Mock complex dependencies
+
+4. **Documentation**
+   - Keep docs up to date
+   - Include examples
+   - Note breaking changes
