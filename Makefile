@@ -49,23 +49,23 @@ verify-staging:
 		log_info "Verifying deployment..." && \
 		echo "Waiting for services to initialize..." && \
 		sleep 5 && \
-		HOST_IP=$$(hostname -I | awk "{print \$$1}") && \
+		HOST_IP=$$(hostname -I | cut -d" " -f1) && \
 		MAX_RETRIES=12 && \
 		RETRY_COUNT=0 && \
-		while [ \$$RETRY_COUNT -lt \$$MAX_RETRIES ]; do \
+		while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do \
 			if curl -s http://localhost:8080/health > /dev/null; then \
 				if curl -s http://localhost:9000/hooks > /dev/null; then \
 					log_info "Deployment verified successfully!" && \
 					echo -e "\nServices are available at:" && \
-					echo -e "  • App: http://\$$HOST_IP:8080" && \
-					echo -e "  • Webhook: http://\$$HOST_IP:9000" && \
+					echo -e "  • App: http://$$HOST_IP:8080" && \
+					echo -e "  • Webhook: http://$$HOST_IP:9000" && \
 					echo -e "\nHealth check endpoints:" && \
-					echo -e "  • App: http://\$$HOST_IP:8080/health" && \
-					echo -e "  • Webhook: http://\$$HOST_IP:9000/hooks" && \
+					echo -e "  • App: http://$$HOST_IP:8080/health" && \
+					echo -e "  • Webhook: http://$$HOST_IP:9000/hooks" && \
 					exit 0; \
 				fi; \
 			fi; \
-			RETRY_COUNT=\$$((RETRY_COUNT + 1)); \
+			RETRY_COUNT=$$((RETRY_COUNT + 1)); \
 			echo -n "."; \
 			sleep 5; \
 		done; \
