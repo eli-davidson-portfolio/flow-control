@@ -390,6 +390,7 @@ setup_git() {
     
     # Configure Git
     git config --global init.defaultBranch main
+    git config --global --add safe.directory "$base_dir"
     
     # Handle repository setup
     if [[ ! -d "$base_dir/.git" ]]; then
