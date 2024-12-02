@@ -1,23 +1,14 @@
-.PHONY: all build run test clean docs lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging
+.PHONY: all build run test clean lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging
 
 # Server settings
 SERVER_PORT=8080
 
 all: check build
 
-build: docs
+build:
 	@echo "Building application..."
 	@docker compose run --rm test go build -o flow-control ./cmd/flowcontrol
 	@echo "Build complete!"
-
-docs:
-	@echo "Generating API documentation..."
-	@docker compose run --rm test sh -c "\
-		cd /app && \
-		go install github.com/swaggo/swag/cmd/swag@latest && \
-		export PATH=/go/bin:$$PATH && \
-		swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal"
-	@echo "Documentation generation complete!"
 
 run: check
 	@echo "Starting application..."
@@ -46,8 +37,6 @@ lint:
 	@echo "Running linters (this may take a while)..."
 	@docker compose run --rm test sh -c "\
 		go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && \
-		go install github.com/swaggo/swag/cmd/swag@latest && \
-		/go/bin/swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal && \
 		/go/bin/golangci-lint run"
 	@echo "Linting complete!"
 
@@ -78,7 +67,7 @@ dev:
 	@docker compose up dev
 
 # Staging environment
-staging: docs
+staging:
 	@echo "Starting staging server..."
 	@docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
 	@echo "Following logs in real-time (Ctrl+C to stop viewing logs)..."
@@ -125,7 +114,6 @@ setup-staging:
 help:
 	@echo "Available targets:"
 	@echo "  make build       - Build the binary"
-	@echo "  make docs       - Generate API documentation"
 	@echo "  make run        - Run the application"
 	@echo "  make test       - Run all tests (includes dependency updates)"
 	@echo "  make test-pkg PKG=./path/to/package - Run tests for a specific package"

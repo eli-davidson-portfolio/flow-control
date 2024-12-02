@@ -1,3 +1,29 @@
+# Documentation stage
+FROM golang:1.22.1-alpine AS docs
+
+WORKDIR /app
+
+# Install swag
+RUN go install github.com/swaggo/swag/cmd/swag@latest
+
+# Copy only what's needed for docs
+COPY go.mod go.sum ./
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+COPY pkg/ ./pkg/
+
+# Generate documentation
+RUN cd /app && \
+    go mod download && \
+    go mod tidy && \
+    /go/bin/swag init \
+        --dir /app/cmd/flowcontrol \
+        --generalInfo main.go \
+        --propertyStrategy camelcase \
+        --output /app/docs \
+        --parseInternal \
+        --parseDependency
+
 # Build stage
 FROM golang:1.22.1-alpine AS builder
 
@@ -6,27 +32,13 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache gcc musl-dev sqlite-dev
 
-# Install swag for API documentation
-RUN go install github.com/swaggo/swag/cmd/swag@latest
-
-# Copy go mod files
+# Copy go mod files and download dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
+# Copy source code and generated docs
 COPY . .
-
-# Generate API documentation
-RUN cd /app && \
-    go mod download && \
-    go mod tidy && \
-    /go/bin/swag init \
-        --dir /app \
-        --generalInfo cmd/flowcontrol/main.go \
-        --propertyStrategy camelcase \
-        --output /app/docs \
-        --parseInternal \
-        --parseDependency
+COPY --from=docs /app/docs/ ./docs/
 
 # Build the application
 RUN go build -o flow-control ./cmd/flowcontrol
@@ -37,9 +49,9 @@ FROM golang:1.22.1-alpine AS dev
 WORKDIR /app
 
 RUN go install github.com/cosmtrek/air@latest
-RUN go install github.com/swaggo/swag/cmd/swag@latest
 
 COPY . .
+COPY --from=docs /app/docs/ ./docs/
 
 CMD ["air"]
 
@@ -50,13 +62,10 @@ WORKDIR /app
 
 # Install build dependencies and tools
 RUN apk add --no-cache gcc musl-dev sqlite-dev git curl && \
-    go install github.com/swaggo/swag/cmd/swag@latest && \
     go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
-# Add Go binaries to PATH (already included in base image)
-ENV PATH="/go/bin:${PATH}"
-
 COPY . .
+COPY --from=docs /app/docs/ ./docs/
 
 CMD ["go", "test", "./..."]
 
@@ -70,7 +79,7 @@ RUN apk add --no-cache sqlite-dev
 
 # Copy binary and documentation
 COPY --from=builder /app/flow-control .
-COPY --from=builder /app/docs ./docs
+COPY --from=docs /app/docs ./docs
 COPY web/ web/
 
 RUN mkdir -p data logs
