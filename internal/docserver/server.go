@@ -14,6 +14,14 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// Package docserver implements the documentation server for Flow Control.
+// It serves API documentation and Swagger UI for exploring the API endpoints.
+//
+// Core types used from internal/types:
+// - Schema (types.go) - Used for API schema documentation
+// - Message (message.go) - Used in API examples
+// - Port (port.go) - Used in API endpoint documentation
+
 // Server represents the documentation server
 type Server struct {
 	router    chi.Router

@@ -10,6 +10,12 @@ import (
 	"flow-control/internal/types"
 )
 
+// Package schema_test contains tests for the schema package.
+//
+// Core types used from internal/types:
+// - Schema (types.go) - Interface for data type validation
+// - Message (message.go) - Used in test examples
+
 func TestBasicSchemas(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -212,9 +218,9 @@ func TestSchemaRegistry(t *testing.T) {
 	// Test builtin schemas
 	builtinTypes := []string{"string", "int", "float", "bool", "time", "any"}
 	for _, typ := range builtinTypes {
-		schema, err := registry.GetLatest(typ)
+		schemaObj, err := registry.GetLatest(typ)
 		require.NoError(t, err)
-		require.NotNil(t, schema)
+		require.NotNil(t, schemaObj)
 	}
 
 	// Test custom schema registration
@@ -233,18 +239,64 @@ func TestSchemaRegistry(t *testing.T) {
 	require.Error(t, err)
 
 	// Test schema retrieval
-	schema, err := registry.Get("object", "1.0")
+	schemaObj, err := registry.Get("object", "1.0")
 	require.NoError(t, err)
-	require.NotNil(t, schema)
+	require.NotNil(t, schemaObj)
 
 	// Test unknown schema
 	_, err = registry.Get("unknown", "1.0")
 	require.Error(t, err)
 
 	// Test list types
-	types := registry.ListTypes()
-	require.Contains(t, types, "object")
-	require.Contains(t, types, "string")
+	typesList := registry.ListTypes()
+	require.Contains(t, typesList, "object")
+	require.Contains(t, typesList, "string")
+
+	// Test list versions
+	versions, err := registry.ListVersions("object")
+	require.NoError(t, err)
+	require.Contains(t, versions, "1.0")
+}
+
+func TestListTypes(t *testing.T) {
+	registry := schema.NewRegistry()
+
+	// Test builtin schemas
+	builtinTypes := []string{"string", "int", "float", "bool", "time", "any"}
+	for _, typ := range builtinTypes {
+		schemaObj, err := registry.GetLatest(typ)
+		require.NoError(t, err)
+		require.NotNil(t, schemaObj)
+	}
+
+	// Test custom schema registration
+	customSchema := schema.NewObjectSchema(
+		map[string]types.Schema{
+			"name": schema.NewStringSchema(),
+			"age":  schema.NewIntSchema(),
+		},
+		[]string{"name"},
+	)
+	err := registry.Register(customSchema)
+	require.NoError(t, err)
+
+	// Test duplicate registration
+	err = registry.Register(customSchema)
+	require.Error(t, err)
+
+	// Test schema retrieval
+	schemaObj, err := registry.Get("object", "1.0")
+	require.NoError(t, err)
+	require.NotNil(t, schemaObj)
+
+	// Test unknown schema
+	_, err = registry.Get("unknown", "1.0")
+	require.Error(t, err)
+
+	// Test list types
+	schemaTypes := registry.ListTypes()
+	require.Contains(t, schemaTypes, "object")
+	require.Contains(t, schemaTypes, "string")
 
 	// Test list versions
 	versions, err := registry.ListVersions("object")

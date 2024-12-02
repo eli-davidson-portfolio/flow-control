@@ -34,6 +34,23 @@ COPY . .
 
 CMD ["air"]
 
+# Test stage
+FROM golang:1.22.1-alpine AS test
+
+WORKDIR /app
+
+# Install build dependencies and tools
+RUN apk add --no-cache gcc musl-dev sqlite-dev git curl && \
+    go install github.com/swaggo/swag/cmd/swag@latest && \
+    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# Add Go binaries to PATH
+ENV PATH="/root/go/bin:${PATH}"
+
+COPY . .
+
+CMD ["go", "test", "./..."]
+
 # Production stage
 FROM alpine:latest AS production
 
@@ -51,15 +68,4 @@ RUN mkdir -p data logs
 
 EXPOSE 8080
 
-CMD ["./flow-control"]
-
-# Test stage
-FROM golang:1.22.1-alpine AS test
-
-WORKDIR /app
-
-RUN go install github.com/swaggo/swag/cmd/swag@latest
-
-COPY . .
-
-CMD ["go", "test", "./..."] 
+CMD ["./flow-control"] 

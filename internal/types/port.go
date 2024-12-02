@@ -2,8 +2,20 @@ package types
 
 import (
 	"context"
-	"time"
 )
+
+// Package types defines the core interfaces and types for the Flow Control system.
+// This package contains all shared type definitions to prevent circular dependencies
+// and maintain a single source of truth for core types.
+//
+// Core types used from this package:
+// - Port - Interface for message passing endpoints
+// - Message - Data packet structure
+// - Schema - Data validation interface
+// - PortConfig - Port configuration structure
+// - PortMetrics - Port performance metrics
+// - PortStatus - Port operational status
+// - QualityOfService - Message delivery guarantees
 
 // Port represents a connection point for messages
 type Port interface {

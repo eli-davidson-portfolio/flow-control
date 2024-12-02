@@ -1,3 +1,12 @@
+// Package schema implements type validation and schema management for Flow Control.
+// It provides basic and composite schema types, along with a registry for managing
+// schema versions and compatibility.
+//
+// Core types used from internal/types:
+// - Schema (types.go) - Interface for data type validation
+// - Message (message.go) - Used in validation examples
+// - Fields (types.go) - Used for structured logging
+// - Port (port.go) - Used for message validation
 package schema
 
 import (
@@ -6,15 +15,6 @@ import (
 
 	"flow-control/internal/types"
 )
-
-// Package schema implements type validation and schema management for Flow Control.
-// It provides basic and composite schema types, along with a registry for managing
-// schema versions and compatibility.
-
-// Core types used from internal/types:
-// - Schema (types.go) - Interface for data type validation
-// - Message (message.go) - Used in validation examples
-// - Fields (types.go) - Used for structured logging
 
 // BasicSchema implements the Schema interface for primitive types
 type BasicSchema struct {

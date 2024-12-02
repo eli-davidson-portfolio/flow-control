@@ -13,9 +13,9 @@ build: docs
 docs:
 	@echo "Generating API documentation..."
 	@docker compose run --rm test sh -c "\
-		chmod +x scripts/tools/install-cli.sh && \
-		./scripts/tools/install-cli.sh && \
-		$(HOME)/go/bin/swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal"
+		go install github.com/swaggo/swag/cmd/swag@latest && \
+		export PATH=/go/bin:$$PATH && \
+		swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal"
 	@echo "Documentation generation complete!"
 
 run: check
@@ -43,12 +43,16 @@ clean:
 
 lint:
 	@echo "Running linters (this may take a while)..."
-	@docker compose run --rm test golangci-lint run
+	@docker compose run --rm test sh -c "\
+		go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && \
+		go install github.com/swaggo/swag/cmd/swag@latest && \
+		/go/bin/swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal && \
+		/go/bin/golangci-lint run"
 	@echo "Linting complete!"
 
 fmt:
 	@echo "Formatting code..."
-	@docker compose run --rm test go fmt ./...
+	@docker compose run --rm test sh -c "go fmt ./..."
 	@echo "Formatting complete!"
 
 check: fmt lint test
@@ -56,8 +60,9 @@ check: fmt lint test
 
 install-tools:
 	@echo "Installing development tools..."
-	@cp scripts/pre-commit .git/hooks/pre-commit
-	@chmod +x .git/hooks/pre-commit
+	@rm -f .git/hooks/pre-commit
+	@ln -s ../../scripts/pre-commit .git/hooks/pre-commit
+	@chmod +x scripts/pre-commit
 	@docker compose run --rm test sh -c "\
 		chmod +x scripts/tools/install-cli.sh && \
 		./scripts/tools/install-cli.sh"

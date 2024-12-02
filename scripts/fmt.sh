@@ -25,17 +25,12 @@ FMT_FLAGS=${FMT_FLAGS:-"-s -w"}
 
 # Parse command line arguments
 CHECK_ONLY=false
-DOCKER_FMT=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --check)
             CHECK_ONLY=true
             FMT_FLAGS="-d"
-            shift
-            ;;
-        --docker)
-            DOCKER_FMT=true
             shift
             ;;
         *)
@@ -46,8 +41,15 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Execute formatting
-if [[ "$DOCKER_FMT" == "true" ]]; then
-    docker-compose run --rm fmt
+if [[ "$CHECK_ONLY" == "true" ]]; then
+    # Check mode - exit with error if any files need formatting
+    if ! gofmt -l . | grep -q .; then
+        exit 0
+    else
+        gofmt -d .
+        exit 1
+    fi
 else
-    find . -name '*.go' -not -path "./vendor/*" -exec gofmt $FMT_FLAGS {} +
+    # Format mode - modify files in place
+    find . -name '*.go' -not -path "./vendor/*" -exec gofmt -s -w {} +
 fi 
