@@ -58,14 +58,15 @@ RUN apk add --no-cache sqlite-dev curl
 # Create necessary directories and user
 RUN addgroup -S appgroup && \
     adduser -S appuser -G appgroup && \
-    mkdir -p data logs && \
+    mkdir -p data logs internal/docserver/templates && \
     chown -R appuser:appgroup /app && \
-    chmod 755 data logs
+    chmod 755 data logs internal
 
 # Copy binary and documentation
 COPY --from=builder /app/flow-control .
 COPY --from=docs /app/docs ./docs
 COPY web/ web/
+COPY internal/docserver/templates/ internal/docserver/templates/
 
 # Ensure copied files have correct ownership
 RUN chown -R appuser:appgroup /app

@@ -1,106 +1,150 @@
 #!/bin/bash
-# deploy.sh - Staging deployment script
-set -e
 
-# Source common functions
+# Source common utilities
 source "$(dirname "$0")/../common/init.sh"
 
-# Configuration
-DEPLOY_LOG="logs/deploy.log"
-BACKUP_DIR="data/backups"
-MAX_BACKUPS=7
+# Clear screen and move cursor to top
+clear
+sleep 0.5
 
-# Initialize logging
-mkdir -p "$(dirname "$DEPLOY_LOG")"
-exec 1> >(tee -a "$DEPLOY_LOG") 2>&1
+# ASCII art
+cat << "EOF"
+ _____ _                 ___           _           _ 
+|  ___| | _____      __ / __\___  _ __ | |_ _ __ ___ | |
+| |_  | |/ _ \ \ /\ / // /  / _ \| '_ \| __| '__/ _ \| |
+|  _| | | (_) \ V  V // /__| (_) | | | | |_| | | (_) | |
+|_|   |_|\___/ \_/\_/ \____/\___/|_| |_|\__|_|  \___/|_|
+                                                        
+EOF
 
-log_info "Starting deployment at $(date)"
+# Add a newline after the logo
+echo
 
-# Function to backup database
-backup_database() {
-    log_info "Backing up database..."
-    mkdir -p "$BACKUP_DIR"
+# Function to show spinner
+show_spinner() {
+  local pid=$1
+  local delay=0.1
+  local spinstr='|/-\'
+  while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+    local temp=${spinstr#?}
+    printf " [%c]  " "$spinstr"
+    local spinstr=$temp${spinstr%"$temp"}
+    sleep $delay
+    printf "\b\b\b\b\b\b"
+  done
+  printf "    \b\b\b\b"
+}
+
+# Function to show step progress
+show_step() {
+  local message=$1
+  local status=$2
+  local color=""
+  local symbol=""
+  
+  case $status in
+    "start")
+      color="$BLUE"
+      symbol="⟳"
+      ;;
+    "success")
+      color="$GREEN"
+      symbol="✓"
+      ;;
+    "error")
+      color="$RED"
+      symbol="✗"
+      ;;
+    *)
+      color="$NC"
+      symbol="•"
+      ;;
+  esac
+  
+  echo -e "${color}${symbol} ${message}${NC}"
+}
+
+# Function to check service health
+check_service_health() {
+  local service=$1
+  local url=$2
+  local max_retries=6
+  local retry_count=0
+  local delay=5
+  
+  while [ $retry_count -lt $max_retries ]; do
+    echo -e "\nAttempt $((retry_count + 1))/$max_retries for $service:"
+    local response
+    response=$(curl -s -i "$url" || echo "Connection failed")
+    echo "$response" | head -n 1
     
-    # Create backup with timestamp
-    local timestamp
-    timestamp=$(date +%Y%m%d_%H%M%S)
-    local backup_file="$BACKUP_DIR/pre_deploy_${timestamp}.sql"
-    
-    if [ -f "data/flow.db" ]; then
-        sqlite3 data/flow.db ".backup '$backup_file'"
-        log_info "Database backed up to $backup_file"
-        
-        # Clean old backups
-        local backup_count
-        backup_count=$(ls -1 "$BACKUP_DIR"/pre_deploy_*.sql 2>/dev/null | wc -l)
-        if [ "$backup_count" -gt "$MAX_BACKUPS" ]; then
-            ls -1t "$BACKUP_DIR"/pre_deploy_*.sql | tail -n +$((MAX_BACKUPS + 1)) | xargs rm -f
-            log_info "Cleaned old backups, keeping last $MAX_BACKUPS"
-        fi
-    else
-        log_warn "No database found to backup"
+    if echo "$response" | grep -q "200 OK\|404 Not Found"; then
+      # 404 is okay for webhook as it means the endpoint exists but needs POST
+      return 0
     fi
+    retry_count=$((retry_count + 1))
+    [ $retry_count -lt $max_retries ] && sleep $delay
+  done
+  return 1
 }
 
-# Function to update code
-update_code() {
-    log_info "Updating code..."
-    
-    # Fetch latest changes
-    git fetch origin
-    
-    # Store current commit for rollback
-    echo "$(git rev-parse HEAD)" > .last_deploy
-    
-    # Update to latest
-    git pull origin staging
-    
-    log_info "Code updated to $(git rev-parse HEAD)"
-}
-
-# Function to verify deployment
-verify_deployment() {
-    log_info "Verifying deployment..."
-    
-    # Wait for application to start
-    sleep 5
-    
-    # Run health check
-    if ! curl -s http://localhost:8080/health | grep -q "ok"; then
-        log_error "Health check failed"
-        return 1
-    fi
-    
-    log_info "Deployment verified successfully"
-}
-
-# Main deployment process
+# Main deployment steps
 main() {
-    # Ensure we're in the project root
-    cd "$(git rev-parse --show-toplevel)"
-    
-    # Run deployment steps
-    backup_database
-    update_code
-    
-    # Stop current deployment and start new one
-    log_info "Restarting application..."
-    make staging
-    
-    verify_deployment
-    
-    log_info "Deployment completed successfully at $(date)"
+  # Step 1: Clean up environment
+  show_step "Cleaning up environment" "start"
+  if make clean > /dev/null 2>&1; then
+    show_step "Environment cleaned" "success"
+  else
+    show_step "Failed to clean environment" "error"
+    exit 1
+  fi
+  
+  # Step 2: Build services
+  show_step "Building services" "start"
+  if docker compose -f docker-compose.staging.yml build > /dev/null 2>&1; then
+    show_step "Services built successfully" "success"
+  else
+    show_step "Failed to build services" "error"
+    exit 1
+  fi
+  
+  # Step 3: Start services
+  show_step "Starting services" "start"
+  if docker compose -f docker-compose.staging.yml up -d > /dev/null 2>&1; then
+    show_step "Services started" "success"
+  else
+    show_step "Failed to start services" "error"
+    exit 1
+  fi
+  
+  # Step 4: Wait for services to be healthy
+  show_step "Waiting for services to be healthy" "start"
+  echo -e "\nChecking app health..."
+  if ! check_service_health "app" "http://127.0.0.1:8080/health"; then
+    show_step "App health check failed" "error"
+    docker compose -f docker-compose.staging.yml logs app
+    exit 1
+  fi
+  
+  echo -e "\nChecking webhook health..."
+  if ! check_service_health "webhook" "http://127.0.0.1:9001/hooks/deploy"; then
+    show_step "Webhook health check failed" "error"
+    docker compose -f docker-compose.staging.yml logs webhook
+    exit 1
+  fi
+  
+  show_step "Services are healthy" "success"
+  
+  # Step 5: Final verification
+  show_step "Verifying deployment" "start"
+  echo -e "\nServices are available at:"
+  echo -e "  • App: http://127.0.0.1:8080"
+  echo -e "  • Webhook: http://127.0.0.1:9001"
+  echo -e "\nHealth check endpoints:"
+  echo -e "  • App: http://127.0.0.1:8080/health"
+  echo -e "  • Webhook: http://127.0.0.1:9001/hooks/deploy"
+  show_step "Deployment complete" "success"
 }
 
-# Run main function if script is executed directly
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    if ! main "$@"; then
-        log_error "Deployment failed"
-        if [ -f .last_deploy ]; then
-            log_info "Rolling back to $(cat .last_deploy)"
-            git reset --hard "$(cat .last_deploy)"
-            make staging
-        fi
-        exit 1
-    fi
-fi 
+# Run main function
+main "$@" 

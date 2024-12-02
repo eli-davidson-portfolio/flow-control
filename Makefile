@@ -102,27 +102,11 @@ verify-staging:
 		log_warning "Services are running but health checks failed. Check logs in logs/deploy-* directory" && \
 		exit 1'
 
-staging: clean-env ensure-ports
+# Staging deployment
+staging:
 	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
-		source $(LIB_DIR)/docker/manager.sh && \
 		log_info "Deploying to staging environment" && \
-		if ! docker compose -f docker-compose.staging.yml pull; then \
-			log_error "Failed to pull images" && exit 1; \
-		fi && \
-		log_info "Starting services..." && \
-		if ! docker compose -f docker-compose.staging.yml up -d --build; then \
-			log_error "Failed to start services" && \
-			$(MAKE) capture-logs && \
-			exit 1; \
-		fi && \
-		log_info "Services started, waiting for initialization..." && \
-		sleep 5 && \
-		docker compose -f docker-compose.staging.yml ps && \
-		log_info "Staging deployment complete" && \
-		if ! $(MAKE) verify-staging; then \
-			log_warning "Verification failed, but services may still be running. Check logs and try again if needed." && \
-			exit 1; \
-		fi'
+		$(SCRIPTS_DIR)/staging/deploy.sh'
 
 setup-staging: staging
 	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
@@ -148,7 +132,7 @@ setup-staging: staging
 		}'
 
 logs:
-	@docker compose -f docker-compose.staging.yml logs -f
+	@$(SCRIPTS_DIR)/staging/logs.sh
 
 dev: clean-env ensure-ports
 	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
@@ -185,14 +169,11 @@ test:
 		complete_task 'Tests complete!'"
 
 clean:
-	@echo "Cleaning build artifacts..."
-	@bash -c ". $(PROGRESS_SCRIPT) && \
-		status_msg 'Cleaning workspace' 'info' && \
-		rm -f flowcontrol && \
-		rm -rf docs/ && \
-		rm -rf tmp/ && \
-		docker compose down -v && \
-		complete_task 'Cleanup complete!'"
+	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
+		log_info "Cleaning up environment..." && \
+		docker compose -f docker-compose.staging.yml down --remove-orphans && \
+		docker system prune -f > /dev/null 2>&1 || true && \
+		rm -rf logs/deploy-* || true'
 
 lint:
 	@echo "Running linters..."
@@ -264,3 +245,6 @@ help:
 		echo '  make staging    - Deploy to staging' && \
 		echo '  make setup-staging - Set up staging environment' && \
 		echo '  make help       - Show this help message'"
+
+# Mark targets that don't create files
+.PHONY: clean staging logs

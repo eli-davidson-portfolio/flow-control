@@ -129,76 +129,40 @@ The application includes a webhook server for automated deployments:
     /ports         # Port management
     /env           # Environment utilities
     /test          # Test framework
-```
 
-## Development
+# Docker Configuration
 
-All development commands are containerized for consistency:
+## Network Configuration
 
-- Build the project: `make build`
-- Run tests: `make test`
-- Format code: `make fmt`
-- Run linters: `make lint`
-- Run all checks: `make check`
-- Clean build files: `make clean`
-- Generate docs: `make docs`
-- Test shell scripts: `make test-scripts`
+When using host networking mode (`network_mode: host`), there are important considerations for service binding:
 
-The pre-commit hook automatically runs all checks in Docker to ensure code quality.
+1. **Service Ports**
+   - Bind services to `0.0.0.0` to accept external connections
+   - Configure in `docker-compose.yml`:
+     ```yaml
+     services:
+       app:
+         environment:
+           SERVER_HOST: "0.0.0.0"  # Allow external access
+     ```
 
-## Configuration
+2. **Health Checks**
+   - Use `127.0.0.1` for internal health checks
+   - Example configuration:
+     ```yaml
+     services:
+       app:
+         healthcheck:
+           test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]
+     ```
 
-The application can be configured using a JSON configuration file:
+3. **Common Issues**
+   - Binding to `127.0.0.1` prevents external access
+   - Container health checks may pass while external access fails
+   - Solution: Always bind services to `0.0.0.0` with host networking
 
-```json
-{
-  "server": {
-    "host": "0.0.0.0",
-    "port": 8080
-  },
-  "database": {
-    "path": "data/flows.db"
-  },
-  "logging": {
-    "level": "info",
-    "format": "json",
-    "file": "/app/logs/flow.log"
-  }
-}
-```
-
-Environment variables:
-- `CONFIG_FILE`: Path to configuration file
-- `LOG_LEVEL`: Logging level (error, warning, info, debug)
-- `APP_PORT`: Application port (default: 8080)
-- `WEBHOOK_PORT`: Webhook port (default: 9000)
-
-## API Documentation
-
-The API documentation is available through Swagger UI at http://localhost:8080/api/swagger/index.html when the server is running.
-
-## Testing
-
-1. Go Tests:
-   ```bash
-   make test
-   ```
-
-2. Shell Script Tests:
-   ```bash
-   make test-scripts
-   ```
-
-3. Integration Tests:
-   ```bash
-   make docker-test
-   ```
-
-4. Debug Mode:
-   ```bash
-   LOG_LEVEL=debug make <target>
-   ```
-
-## License
-
-MIT License 
+4. **Port Management**
+   - Health checks use localhost (`127.0.0.1`)
+   - Services bind to all interfaces (`0.0.0.0`)
+   - Port conflicts are automatically resolved
+   - Ports are released gracefully on shutdown

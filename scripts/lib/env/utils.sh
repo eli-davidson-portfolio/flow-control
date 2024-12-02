@@ -46,7 +46,7 @@ log_message() {
     local color="$3"
     
     if should_log "${level}"; then
-        echo -e "${color}[${level^^}]${NC} ${message}"
+        echo -e "${color}[$(echo "$level" | tr '[:lower:]' '[:upper:]')]${NC} ${message}"
     fi
 }
 
