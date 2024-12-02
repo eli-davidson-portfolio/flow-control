@@ -5,6 +5,9 @@ SHELL := /bin/bash
 PROGRESS_SCRIPT := scripts/common/progress.sh
 PROGRESS_FUNCTIONS := $(shell bash -c ". $(PROGRESS_SCRIPT) && declare -F | cut -d' ' -f3")
 
+# Environment settings
+INSTALL_DIR := $(shell pwd)
+
 .PHONY: all build run test clean lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging
 
 all: check build
@@ -44,7 +47,7 @@ setup-staging: clean-env
 		bash -x scripts/setup/setup-env.sh \
 			--env staging \
 			--user deploy \
-			--dir /opt/flow-control \
+			--dir $(INSTALL_DIR) \
 			--branch staging \
 			--skip-memory-check && \
 		$(MAKE) staging || { \
