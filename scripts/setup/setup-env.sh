@@ -11,9 +11,28 @@ ENV="staging"
 USER="deploy"
 INSTALL_DIR="/opt/flow-control"
 BRANCH="staging"
-WEBHOOK_PORT="9000"
+WEBHOOK_PORT="9001"
 APP_PORT="8080"
 SKIP_MEMORY_CHECK="false"
+
+# Install required system packages
+install_system_packages() {
+    log_info "Installing required system packages..."
+    
+    # Check package manager and install
+    if command -v apt-get >/dev/null; then
+        apt-get update
+        apt-get install -y lsof curl net-tools
+    elif command -v yum >/dev/null; then
+        yum update -y
+        yum install -y lsof curl net-tools
+    elif command -v apk >/dev/null; then
+        apk update
+        apk add lsof curl net-tools
+    else
+        log_warning "Unknown package manager, please install lsof manually"
+    fi
+}
 
 # Parse arguments
 parse_args() {
@@ -109,14 +128,18 @@ EOF
 
 # Main setup function
 main() {
-    # Parse arguments
     parse_args "$@"
     
-    # Create environment file
-    setup_env_file "$INSTALL_DIR" "$ENV" || exit 1
+    # Install system packages first
+    install_system_packages
+    
+    # Setup environment file
+    setup_env_file "$INSTALL_DIR" "$ENV"
     
     log_info "Setup completed successfully!"
 }
 
-# Run main function if script is executed directly
-[[ "${BASH_SOURCE[0]}" == "${0}" ]] && main "$@" 
+# Only run if script is executed directly
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi 
