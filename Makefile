@@ -79,19 +79,19 @@ verify-staging:
 		MAX_RETRIES=6 && \
 		RETRY_COUNT=0 && \
 		while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do \
-			APP_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health || echo "failed") && \
-			WEBHOOK_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9001/hooks || echo "failed") && \
+			APP_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/health || echo "failed") && \
+			WEBHOOK_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:9001/hooks || echo "failed") && \
 			echo "Health check attempt $$((RETRY_COUNT + 1))/$$MAX_RETRIES:" && \
 			echo "  • App: $$APP_HEALTH" && \
 			echo "  • Webhook: $$WEBHOOK_HEALTH" && \
 			if [ "$$APP_HEALTH" = "200" ] && [ "$$WEBHOOK_HEALTH" = "200" ]; then \
 				log_info "Deployment verified successfully!" && \
 				echo -e "\nServices are available at:" && \
-				echo -e "  • App: http://localhost:8080" && \
-				echo -e "  • Webhook: http://localhost:9001" && \
+				echo -e "  • App: http://127.0.0.1:8080" && \
+				echo -e "  • Webhook: http://127.0.0.1:9001" && \
 				echo -e "\nHealth check endpoints:" && \
-				echo -e "  • App: http://localhost:8080/health ($$APP_HEALTH)" && \
-				echo -e "  • Webhook: http://localhost:9001/hooks ($$WEBHOOK_HEALTH)" && \
+				echo -e "  • App: http://127.0.0.1:8080/health ($$APP_HEALTH)" && \
+				echo -e "  • Webhook: http://127.0.0.1:9001/hooks ($$WEBHOOK_HEALTH)" && \
 				exit 0; \
 			fi; \
 			RETRY_COUNT=$$((RETRY_COUNT + 1)); \
