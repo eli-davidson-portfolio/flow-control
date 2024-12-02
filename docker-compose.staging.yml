@@ -6,11 +6,20 @@ services:
       target: production
     env_file: .env.staging
     environment:
-      - GO_ENV=staging
-      - CONFIG_FILE=/app/config.json
-      - SERVER_HOST=0.0.0.0
-      - SERVER_PORT=${APP_PORT:-8080}
-      - LOG_LEVEL=debug
+      APP_PORT: "8080"
+      CGO_ENABLED: "1"
+      COMPOSE_DOCKER_CLI_BUILD: "1"
+      CONFIG_FILE: /app/config.json
+      DB_PATH: /app/data/flows.db
+      DOCKER_BUILDKIT: "1"
+      ENVIRONMENT: staging
+      GO_ENV: staging
+      LOG_FILE: /app/logs/flow-control.log
+      LOG_FORMAT: json
+      LOG_LEVEL: debug
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: "8080"
+      WEBHOOK_PORT: "9001"
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
