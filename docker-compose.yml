@@ -25,7 +25,7 @@ services:
       - CGO_ENABLED=1
 
   test:
-    image: golang:1.22.9-bullseye
+    image: golang:1.22.1-bullseye
     working_dir: /app
     volumes:
       - .:/app

@@ -5,10 +5,19 @@ SERVER_PORT=8080
 
 all: check build
 
-build:
+build: docs
 	@echo "Building application..."
 	@./scripts/build.sh
 	@echo "Build complete!"
+
+docs:
+	@echo "Generating API documentation..."
+	@if ! command -v swag > /dev/null; then \
+		echo "Installing swag..."; \
+		go install github.com/swaggo/swag/cmd/swag@latest; \
+	fi
+	@swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal
+	@echo "Documentation generation complete!"
 
 run: check
 	@echo "Starting application..."
@@ -50,6 +59,10 @@ install-tools:
 	@echo "Installing development tools..."
 	@cp scripts/pre-commit .git/hooks/pre-commit
 	@chmod +x .git/hooks/pre-commit
+	@if ! command -v swag > /dev/null; then \
+		echo "Installing swag..."; \
+		go install github.com/swaggo/swag/cmd/swag@latest; \
+	fi
 	@echo "Tools installed successfully!"
 
 pre-commit: check
@@ -61,7 +74,7 @@ dev:
 	@docker compose up dev
 
 # Staging environment
-staging:
+staging: docs
 	@echo "Starting staging server..."
 	@docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
 
@@ -106,6 +119,7 @@ setup-staging:
 help:
 	@echo "Available targets:"
 	@echo "  make build       - Build the binary"
+	@echo "  make docs       - Generate API documentation"
 	@echo "  make run        - Run the application"
 	@echo "  make test       - Run all tests (includes dependency updates)"
 	@echo "  make test-pkg PKG=./path/to/package - Run tests for a specific package"

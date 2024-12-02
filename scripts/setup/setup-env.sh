@@ -449,6 +449,20 @@ setup_git() {
     log_info "Repository setup complete"
 }
 
+# Get server IP address
+get_server_ip() {
+    # Try to get the primary IP address
+    local ip
+    if command -v ip &> /dev/null; then
+        ip=$(ip route get 1 | awk '{print $7; exit}')
+    elif command -v hostname &> /dev/null; then
+        ip=$(hostname -I | awk '{print $1}')
+    else
+        ip="localhost"
+    fi
+    echo "$ip"
+}
+
 # Start application
 start_application() {
     local base_dir="$1"
@@ -467,9 +481,13 @@ start_application() {
     # Wait for application to start
     sleep 5
     
+    # Get server IP
+    local server_ip
+    server_ip=$(get_server_ip)
+    
     # Check if application is running
-    if curl -s http://localhost:8080/health | grep -q "ok"; then
-        log_info "Application started successfully"
+    if curl -s "http://${server_ip}:8080/health" | grep -q "ok"; then
+        log_info "Application started successfully at http://${server_ip}:8080"
     else
         log_warn "Application may not have started properly. Check logs for details."
     fi
@@ -490,6 +508,10 @@ main() {
     setup_webhook "$INSTALL_DIR" "$WEBHOOK_PORT" || exit 1
     setup_docker || exit 1
     setup_firewall "80" "$WEBHOOK_PORT" "$APP_PORT" || exit 1
+    
+    # Get server IP
+    local server_ip
+    server_ip=$(get_server_ip)
     
     # Display deploy key and wait for user
     log_info "IMPORTANT: Add the following deploy key to GitHub before continuing:"
@@ -529,7 +551,7 @@ main() {
     log_info "1. The deploy key has been added to GitHub"
     log_info "2. Environment variables are configured in $INSTALL_DIR/.env.$ENV"
     if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
-        log_info "3. The application should now be running. Check status with: curl http://localhost:8080/health"
+        log_info "3. The application should now be running at http://${server_ip}:8080"
     fi
 }
 
