@@ -5,10 +5,11 @@ SHELL := /bin/bash
 PROGRESS_SCRIPT := scripts/common/progress.sh
 PROGRESS_FUNCTIONS := $(shell bash -c ". $(PROGRESS_SCRIPT) && declare -F | cut -d' ' -f3")
 
-.PHONY: all build run test clean lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging
+# Application ports
+APP_PORT := 8080
+WEBHOOK_PORT := 9000
 
-# Server settings
-SERVER_PORT=8080
+.PHONY: all build run test clean lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging free-ports
 
 all: check build
 
@@ -87,16 +88,28 @@ dev:
 		status_msg 'Starting development server' 'info' && \
 		docker compose up dev"
 
-staging:
+# Helper target to free ports
+free-ports:
+	@echo "Freeing required ports..."
+	@for port in $(APP_PORT) $(WEBHOOK_PORT); do \
+		pid=$$(netstat -nlp 2>/dev/null | grep ":$$port" | awk '{print $$7}' | cut -d'/' -f1); \
+		if [ ! -z "$$pid" ]; then \
+			echo "Killing process $$pid using port $$port"; \
+			kill -9 $$pid 2>/dev/null || true; \
+		fi; \
+	done
+	@sleep 2  # Give processes time to release ports
+
+staging: free-ports
 	@bash -c ". $(PROGRESS_SCRIPT) && \
 		show_logo && \
 		status_msg 'Deploying to staging environment' 'info' && \
-		docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d && \
+			docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d && \
 		status_msg 'Staging deployment complete' 'success' && \
 		echo 'Following logs in real-time (Ctrl+C to stop viewing logs)...' && \
 		docker compose -f docker-compose.yml -f docker-compose.staging.yml logs -f"
 
-setup-staging:
+setup-staging: free-ports
 	@bash -c ". $(PROGRESS_SCRIPT) && \
 		show_logo && \
 		status_msg 'Initializing staging environment setup' 'info' && \
