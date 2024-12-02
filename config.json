@@ -9,6 +9,6 @@
   "logging": {
     "level": "debug",
     "format": "json",
-    "file": "/app/logs/flow.log"
+    "file": "/app/logs/flow-control.log"
   }
 } 

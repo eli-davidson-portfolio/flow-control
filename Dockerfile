@@ -55,18 +55,23 @@ WORKDIR /app
 # Install runtime dependencies
 RUN apk add --no-cache sqlite-dev curl
 
+# Create necessary directories and user
+RUN addgroup -S appgroup && \
+    adduser -S appuser -G appgroup && \
+    mkdir -p data logs && \
+    chown -R appuser:appgroup /app && \
+    chmod 755 data logs
+
 # Copy binary and documentation
 COPY --from=builder /app/flow-control .
 COPY --from=docs /app/docs ./docs
 COPY web/ web/
 
-# Create necessary directories with proper permissions
-RUN mkdir -p data logs && \
-    chmod 755 data logs && \
-    chown -R nobody:nobody data logs
+# Ensure copied files have correct ownership
+RUN chown -R appuser:appgroup /app
 
 # Switch to non-root user
-USER nobody
+USER appuser
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
