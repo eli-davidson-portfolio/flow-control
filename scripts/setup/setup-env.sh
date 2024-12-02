@@ -463,34 +463,62 @@ get_server_ip() {
     echo "$ip"
 }
 
-# Start application
+verify_application() {
+    local base_dir="$1"
+    local max_attempts=12  # 60 seconds total (5 seconds * 12)
+    local attempt=1
+    local server_ip
+    
+    server_ip=$(get_server_ip)
+    
+    log_info "Verifying application startup..."
+    
+    while [ $attempt -le $max_attempts ]; do
+        if curl -s "http://${server_ip}:8080/health" | grep -q "ok"; then
+            log_info "Application is running successfully at http://${server_ip}:8080"
+            return 0
+        fi
+        
+        log_info "Waiting for application to start (attempt $attempt/$max_attempts)..."
+        sleep 5
+        attempt=$((attempt + 1))
+    done
+    
+    log_error "Application failed to start properly after $(( max_attempts * 5 )) seconds"
+    log_info "Checking application logs..."
+    
+    if [ -f "${base_dir}/logs/app.log" ]; then
+        tail -n 50 "${base_dir}/logs/app.log"
+    else
+        docker compose -f "${base_dir}/docker-compose.yml" -f "${base_dir}/docker-compose.staging.yml" logs
+    fi
+    
+    return 1
+}
+
 start_application() {
     local base_dir="$1"
     
     log_info "Starting application..."
     
-    # Verify environment file exists
-    if [[ ! -f "$base_dir/.env.staging" ]]; then
-        log_error "Environment file not found: $base_dir/.env.staging"
+    if [[ ! -f "${base_dir}/.env.staging" ]]; then
+        log_error "Environment file not found"
         return 1
     fi
     
-    cd "$base_dir"
-    make staging
+    cd "${base_dir}"
     
-    # Wait for application to start
-    sleep 5
-    
-    # Get server IP
-    local server_ip
-    server_ip=$(get_server_ip)
-    
-    # Check if application is running
-    if curl -s "http://${server_ip}:8080/health" | grep -q "ok"; then
-        log_info "Application started successfully at http://${server_ip}:8080"
-    else
-        log_warn "Application may not have started properly. Check logs for details."
+    if ! make staging; then
+        log_error "Failed to start application"
+        return 1
     fi
+    
+    # Verify the application is running
+    if ! verify_application "${base_dir}"; then
+        return 1
+    fi
+    
+    return 0
 }
 
 # Main setup function
@@ -542,7 +570,10 @@ main() {
     read -p "Would you like to start the application now? [Y/n] " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
-        start_application "$INSTALL_DIR" || exit 1
+        if ! start_application "$INSTALL_DIR"; then
+            log_error "Application startup failed. Please check the logs and try again."
+            exit 1
+        fi
     else
         log_info "You can start the application later with: cd $INSTALL_DIR && make staging"
     fi
