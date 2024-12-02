@@ -20,7 +20,13 @@ COPY . .
 RUN cd /app && \
     go mod download && \
     go mod tidy && \
-    /go/bin/swag init -g /app/cmd/flowcontrol/main.go --parseDependency --parseInternal --output /app/docs
+    /go/bin/swag init \
+        --dir /app \
+        --generalInfo cmd/flowcontrol/main.go \
+        --propertyStrategy camelcase \
+        --output /app/docs \
+        --parseInternal \
+        --parseDependency
 
 # Build the application
 RUN go build -o flow-control ./cmd/flowcontrol
