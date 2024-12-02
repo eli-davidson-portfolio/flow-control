@@ -6,6 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
+    env_file: .env.staging
     environment:
       - GO_ENV=staging
       - CONFIG_FILE=/app/config.json

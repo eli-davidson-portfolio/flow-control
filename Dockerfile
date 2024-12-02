@@ -32,11 +32,11 @@ FROM alpine:latest AS production
 
 WORKDIR /app
 
+# Install runtime dependencies
+RUN apk add --no-cache sqlite-dev
+
 COPY --from=builder /app/flow-control .
-
 COPY web/ web/
-
-COPY .env.staging .env
 
 RUN mkdir -p data logs
 
