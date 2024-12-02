@@ -1,3 +1,6 @@
+# Use bash for shell commands
+SHELL := /bin/bash
+
 .PHONY: all build run test clean lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging
 
 # Server settings

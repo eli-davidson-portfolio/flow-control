@@ -1,4 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+# Check if we're running in bash
+if [ -z "$BASH_VERSION" ]; then
+    echo "This script requires bash. Please run with bash $0" >&2
+    exit 1
+fi
 
 # ANSI color codes
 BLACK='\033[0;30m'
@@ -10,6 +16,14 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m'
+
+# Export functions for use in Makefile
+export -f show_logo
+export -f spinner
+export -f progress_bar
+export -f status_msg
+export -f complete_task
+export -f matrix_rain
 
 # ShadowLab ASCII art
 show_logo() {
@@ -106,4 +120,13 @@ matrix_rain() {
         sleep 0.01
     done
     echo
-} 
+}
+
+# If script is being run directly, show demo
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    show_logo
+    status_msg "Running demo..." "info"
+    matrix_rain 2
+    (sleep 5 &) && progress_bar 5
+    complete_task "Demo complete!"
+fi 
