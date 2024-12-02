@@ -262,10 +262,22 @@ DB_PATH=/app/data/flow.db
 LOG_LEVEL=info
 LOG_FORMAT=json
 LOG_FILE=/app/logs/flow.log
+
+# Runtime Settings
+CGO_ENABLED=1
+CONFIG_FILE=/app/config.json
 EOF
     
     chmod 600 "$base_dir/.env.$env"
     chown "$USER:$USER" "$base_dir/.env.$env"
+    
+    # Verify file was created
+    if [[ ! -f "$base_dir/.env.$env" ]]; then
+        log_error "Failed to create environment file: $base_dir/.env.$env"
+        return 1
+    fi
+    
+    log_info "Environment file created successfully"
 }
 
 # Setup Nginx
@@ -444,6 +456,12 @@ start_application() {
     
     log_info "Starting application..."
     
+    # Verify environment file exists
+    if [[ ! -f "$base_dir/.env.staging" ]]; then
+        log_error "Environment file not found: $base_dir/.env.staging"
+        return 1
+    fi
+    
     cd "$base_dir"
     make staging
     
@@ -464,16 +482,16 @@ main() {
     parse_args "$@"
     
     # Run setup steps
-    check_system_requirements
-    install_packages
-    setup_user "$USER"
-    setup_directories "$INSTALL_DIR"
-    setup_ssh "$INSTALL_DIR" "$ENV"
-    setup_env_file "$INSTALL_DIR" "$ENV"
+    check_system_requirements || exit 1
+    install_packages || exit 1
+    setup_user "$USER" || exit 1
+    setup_directories "$INSTALL_DIR" || exit 1
+    setup_ssh "$INSTALL_DIR" "$ENV" || exit 1
+    setup_env_file "$INSTALL_DIR" "$ENV" || exit 1
     [[ -n "$DOMAIN" ]] && setup_nginx "$DOMAIN" "$APP_PORT"
-    setup_webhook "$INSTALL_DIR" "$WEBHOOK_PORT"
-    setup_docker
-    setup_firewall "80" "$WEBHOOK_PORT" "$APP_PORT"
+    setup_webhook "$INSTALL_DIR" "$WEBHOOK_PORT" || exit 1
+    setup_docker || exit 1
+    setup_firewall "80" "$WEBHOOK_PORT" "$APP_PORT" || exit 1
     
     # Display deploy key and wait for user
     log_info "IMPORTANT: Add the following deploy key to GitHub before continuing:"
@@ -487,15 +505,21 @@ main() {
     read -p "Press Enter after adding the deploy key to GitHub..."
     
     # Continue with Git setup
-    setup_git "$INSTALL_DIR" "$REPO" "$BRANCH"
+    setup_git "$INSTALL_DIR" "$REPO" "$BRANCH" || exit 1
     
     log_info "Setup completed successfully!"
+    
+    # Verify environment file exists before asking to start
+    if [[ ! -f "$INSTALL_DIR/.env.$ENV" ]]; then
+        log_error "Environment file not found after setup. Cannot start application."
+        exit 1
+    fi
     
     # Ask before starting application
     read -p "Would you like to start the application now? [Y/n] " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
-        start_application "$INSTALL_DIR"
+        start_application "$INSTALL_DIR" || exit 1
     else
         log_info "You can start the application later with: cd $INSTALL_DIR && make staging"
     fi
