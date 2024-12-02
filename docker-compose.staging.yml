@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    environment:
+      - GO_ENV=staging
+      - CONFIG_FILE=/app/config.json
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    ports:
+      - "8080:8080"
+    networks:
+      - flow-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  webhook:
+    image: almir/webhook
+    volumes:
+      - ./config/hooks.json:/etc/webhook/hooks.json
+      - ./scripts:/app/scripts
+    ports:
+      - "9000:9000"
+    command: -hooks /etc/webhook/hooks.json -verbose
+    networks:
+      - flow-network
+    restart: unless-stopped
+
+networks:
+  flow-network:
+    name: flow-network 

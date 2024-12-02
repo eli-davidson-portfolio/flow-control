@@ -60,6 +60,11 @@ dev:
 	@echo "Starting development server..."
 	@docker compose up dev
 
+# Staging environment
+staging:
+	@echo "Starting staging server..."
+	@docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
+
 # Docker environment tests
 docker-test:
 	@echo "Running Docker recovery tests..."

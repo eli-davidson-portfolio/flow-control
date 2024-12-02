@@ -713,3 +713,110 @@ This organization:
    - Service restart
    - User notification
    ```
+
+## Deployment Strategy
+
+1. Environment Setup
+   ```bash
+   # Environment types
+   - Development (local): Uses docker-compose.yml
+   - Staging: Uses docker-compose.yml + docker-compose.staging.yml
+   - Production (future): Will use docker-compose.yml + docker-compose.prod.yml
+   ```
+
+2. Staging Environment
+   ```bash
+   # Components
+   - Docker Compose for container orchestration
+   - Webhook for automated deployments (port 9000)
+   - Deploy user with restricted permissions
+   - SSH deploy keys for secure repository access
+   - Memory-optimized for 1GB servers (512MB min, 1GB max)
+   
+   # Directory Structure
+   /opt/flow-control/
+   ├── .env.staging      # Environment variables
+   ├── .ssh/            # Deploy keys
+   │   ├── id_ed25519   # Private key
+   │   └── config       # SSH configuration
+   ├── config/          # Configuration files
+   │   └── hooks.json   # Webhook configuration
+   ├── logs/            # Application logs
+   │   └── deploy.log   # Deployment logs
+   ├── data/            # Persistent data
+   │   └── backups/     # Database backups
+   └── scripts/         # Deployment scripts
+       ├── common/      # Shared scripts
+       ├── setup/       # Environment setup
+       └── staging/     # Staging-specific scripts
+   ```
+
+3. Initial Setup Process
+   ```bash
+   # On Local Machine
+   1. Clone repository
+   2. Create staging branch
+   3. Push to GitHub
+   
+   # On Staging Server
+   1. Run setup:
+      make setup-staging
+   
+   2. Add deploy key to GitHub:
+      - Go to repo Settings → Deploy Keys
+      - Add key from setup output
+      - Enable write access if needed
+   
+   3. Start application:
+      make staging
+   ```
+
+4. Deployment Process
+   ```bash
+   # Manual Deployment
+   make staging       # Starts application in staging mode
+   
+   # Automated Deployment (via webhook)
+   1. Push to staging branch
+   2. Webhook triggers deploy.sh
+   3. Database backup created
+   4. Code updated via git pull
+   5. Application restarted with make staging
+   6. Health check verification
+   7. Automatic rollback on failure
+   ```
+
+5. Security Considerations
+   ```bash
+   # Access Control
+   - Deploy user with minimal permissions
+   - SSH keys with read-only access (default)
+   - Firewall rules:
+     * SSH (22)
+     * HTTP (80)
+     * Application (8080)
+     * Webhook (9000)
+   
+   # Environment Isolation
+   - Separate Docker network (flow-network)
+   - Environment-specific configs
+   - Memory limits enforced
+   - Automatic container restarts
+   ```
+
+6. Maintenance
+   ```bash
+   # Logs
+   - Application logs in /opt/flow-control/logs/
+   - Deployment logs in /opt/flow-control/logs/deploy.log
+   
+   # Backups
+   - Auto-backup before each deployment
+   - Kept in /opt/flow-control/data/backups/
+   - Last 7 backups retained
+   
+   # Monitoring
+   - Health check endpoint: /health
+   - Memory usage monitoring
+   - Container status checks
+   ```

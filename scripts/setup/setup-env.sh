@@ -392,53 +392,23 @@ setup_git() {
     git config --global init.defaultBranch main
     git config --global --add safe.directory "$base_dir"
     
-    # Handle repository setup
-    if [[ ! -d "$base_dir/.git" ]]; then
-        if [[ -d "$base_dir" ]]; then
-            # Directory exists but isn't a git repo
-            cd "$base_dir"
-            git init
-            git remote add origin "$repo"
-            git fetch origin || {
-                log_error "Failed to fetch from repository. Please check your SSH access and try again."
-                return 1
-            }
-            git checkout -b "$branch" "origin/$branch" || {
-                log_error "Failed to checkout branch $branch. Please check if the branch exists."
-                return 1
-            }
-        else
-            # Fresh clone
-            git clone -b "$branch" "$repo" "$base_dir" || {
-                log_error "Failed to clone repository. Please check your SSH access and try again."
-                return 1
-            }
-        fi
-    else
-        # Existing repository
-        cd "$base_dir"
-        # Check if remote exists, add if it doesn't
-        if ! git remote | grep -q "^origin$"; then
-            git remote add origin "$repo"
-        else
-            git remote set-url origin "$repo"
-        fi
-        git fetch origin || {
-            log_error "Failed to fetch from repository. Please check your SSH access and try again."
-            return 1
-        }
-        git checkout "$branch" || {
-            log_error "Failed to checkout branch $branch. Please check if the branch exists."
-            return 1
-        }
-        git pull origin "$branch" || {
-            log_error "Failed to pull latest changes. Please check your SSH access and try again."
-            return 1
-        }
+    # Remove existing directory if it exists
+    if [[ -d "$base_dir" ]]; then
+        log_info "Removing existing directory..."
+        rm -rf "$base_dir"
     fi
+    
+    # Clone repository
+    log_info "Cloning repository..."
+    git clone -b "$branch" "$repo" "$base_dir" || {
+        log_error "Failed to clone repository. Please check your SSH access and try again."
+        return 1
+    }
     
     # Set permissions
     chown -R "$USER:$USER" "$base_dir"
+    
+    log_info "Repository setup complete"
 }
 
 # Main setup function
