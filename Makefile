@@ -148,10 +148,15 @@ verify-staging:
 		exit 1'
 
 # Staging deployment
-staging:
+staging: clean-env
 	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
 		log_info "Deploying to staging environment" && \
-		$(SCRIPTS_DIR)/staging/deploy.sh'
+		if ! $(SCRIPTS_DIR)/staging/deploy.sh; then \
+			log_error "Deployment failed" && \
+			exit 1; \
+		fi && \
+		log_info "Deployment completed, verifying..." && \
+		$(MAKE) verify-staging'
 
 setup-staging: staging
 	@bash -c 'source $(LIB_DIR)/env/utils.sh && \

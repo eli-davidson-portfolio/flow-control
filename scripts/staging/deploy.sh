@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Source common utilities
+# shellcheck source=../common/init.sh
 source "$(dirname "$0")/../common/init.sh"
 
 # Clear screen and move cursor to top
@@ -26,9 +27,10 @@ show_spinner_with_time() {
   local message=$2
   local delay=0.1
   local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-  local start_time=$(date +%s)
+  local start_time
+  start_time=$(date +%s)
   
-  while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+  while ps a | awk '{print $1}' | grep -q "$pid"; do
     local temp=${spinstr#?}
     local elapsed=$(($(date +%s) - start_time))
     printf "\r\033[K  %c  %s (%ds)" "$spinstr" "$message" $elapsed
@@ -69,29 +71,15 @@ show_step() {
 
 # Function to show build progress
 show_build_progress() {
-  local build_output_file=$(mktemp)
-  local summary_file=$(mktemp)
+  local build_output_file
+  local summary_file
+  build_output_file=$(mktemp)
+  summary_file=$(mktemp)
   
   echo -e "\nStarting build process..."
   
-  # First, ensure dependencies are installed
-  show_step "Installing dependencies" "start"
-  if ! docker compose -f docker-compose.staging.yml run --rm app go mod download; then
-    show_step "Failed to install dependencies" "error"
-    exit 1
-  fi
-  show_step "Dependencies installed" "success"
-  
-  # Generate documentation
-  show_step "Generating documentation" "start"
-  if ! docker compose -f docker-compose.staging.yml run --rm app sh -c 'cd /app && go install github.com/swaggo/swag/cmd/swag@latest && /go/bin/swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal'; then
-    show_step "Failed to generate documentation" "error"
-    exit 1
-  fi
-  show_step "Documentation generated" "success"
-  
   # Start the build in background and tee output to both files
-  docker compose -f docker-compose.staging.yml build 2>&1 | tee "$build_output_file" "$summary_file" &
+  DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose -f docker-compose.staging.yml build 2>&1 | tee "$build_output_file" "$summary_file" &
   local build_pid=$!
   
   # Show spinner while building
@@ -187,15 +175,15 @@ main() {
   
   # Step 3: Start services with progress
   show_step "Starting services" "start"
-  local start_output_file=$(mktemp)
+  local start_output_file
+  start_output_file=$(mktemp)
   if docker compose -f docker-compose.staging.yml up -d > "$start_output_file" 2>&1; then
     show_step "Services started" "success"
     echo -e "\nStarted containers:"
     grep -E "Container .+ Started" "$start_output_file" | sed 's/^/  /'
   else
     show_step "Failed to start services" "error"
-    echo -e "\nStart Error:"
-    cat "$start_output_file" | sed 's/^/  /'
+    sed 's/^/  /' < "$start_output_file"
     rm "$start_output_file"
     exit 1
   fi
