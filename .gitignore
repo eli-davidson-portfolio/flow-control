@@ -1,51 +1,57 @@
 # Binaries and build artifacts
+/bin/
+/build/
 /tmp/
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-flowcontrol
+*.tar.gz
 
 # Test binary, built with `go test -c`
 *.test
 
 # Output of the go coverage tool
 *.out
+coverage/
 
 # Dependency directories
-/vendor/
+vendor/
 
 # IDE specific files
 .idea/
 .vscode/
 *.swp
 *.swo
+.DS_Store
 
-# Log files
-*.log
+# Environment files
+.env*
+!.env.example
+
+# Application specific
+/data/
 /logs/
-internal/*/logs/
-
-# Database files
+/backups/
+*.log
 *.db
-internal/*/test.db
+*.sqlite
 
-# Downloaded files
-*.tar.gz
-
-# Air temporary files
-.air.toml.tmp
-
-# Swagger generated files
-/docs/docs.go
-/docs/swagger.json
-/docs/swagger.yaml
-
-# Generated files
+# Air live reload
 tmp/
-data/flows.db
-internal/config/logs/
-logs/
-tmp/air.log
-tmp/main 
+
+# Docker volumes
+docker/volumes/
+
+# Generated documentation
+docs/api/generated/
+
+# Test artifacts
+test_dir_perms/
+__debug_bin
+debug.test
+
+# Project specific ignores
+.flowcontrol/local/
+.genaiscript/local/ 

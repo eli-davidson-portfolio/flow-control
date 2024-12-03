@@ -1,0 +1,2 @@
+{"timestamp":"2024-12-03T15:02:12Z","suite":"global","event":"start","status":"running","message":"Starting test execution"}
+{"timestamp":"2024-12-03T15:02:12Z","suite":"unit tests","event":"start","status":"running","message":"Starting test suite"}

@@ -1,0 +1,111 @@
+services:
+  dev:
+    image: golang:1.22.1-bullseye
+    working_dir: /app
+    volumes:
+      - ../../:/app
+      - go-cache:/go
+    ports:
+      - "8081:8081"
+    networks:
+      - flow-network
+    command: sh -c "
+      apt-get update && 
+      apt-get install -y sqlite3 libsqlite3-dev curl pkg-config build-essential && 
+      rm -rf vendor/ && 
+      go mod download && 
+      go mod tidy && 
+      go mod vendor && 
+      go install github.com/cosmtrek/air@v1.49.0 && 
+      go install github.com/swaggo/swag/cmd/swag@latest &&
+      cd /app &&
+      swag init -g cmd/flow-control/main.go --parseDependency --parseInternal &&
+      air -c config/dev/.air.toml"
+    env_file:
+      - .env.dev
+    environment:
+      - GOMODCACHE=/go/pkg/mod
+      - GOCACHE=/go/cache
+      - CGO_ENABLED=1
+      - GO111MODULE=on
+      - GOPROXY=https://proxy.golang.org,direct
+      - PKG_CONFIG_PATH=/usr/lib/pkgconfig
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  test:
+    image: golang:1.22.1-bullseye
+    working_dir: /app
+    volumes:
+      - ../../:/app
+      - go-cache:/go
+    networks:
+      - flow-network
+    env_file:
+      - .env.dev
+    environment:
+      - GO_ENV=test
+      - GOMODCACHE=/go/pkg/mod
+      - GOCACHE=/go/cache
+      - CGO_ENABLED=1
+      - GO111MODULE=on
+      - GOPROXY=https://proxy.golang.org,direct
+      - TEST_TIMEOUT=5m
+      - TEST_FLAGS=-v -race -cover
+      - PATH=/go/bin:${PATH}
+      - PKG_CONFIG_PATH=/usr/lib/pkgconfig
+    command: sh -c "
+      apt-get update && 
+      apt-get install -y sqlite3 libsqlite3-dev make git curl pkg-config build-essential && 
+      rm -rf vendor/ && 
+      go mod download && 
+      go mod tidy && 
+      go mod vendor && 
+      go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest &&
+      go install github.com/swaggo/swag/cmd/swag@latest &&
+      mkdir -p data logs &&
+      touch data/flows.db &&
+      chmod -R 777 data logs &&
+      tail -f /dev/null"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  go-cache:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+
+networks:
+  flow-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16

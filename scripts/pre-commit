@@ -14,6 +14,9 @@
 #   5. Dependency consistency
 #   6. Documentation validation
 #   7. Shell script validation
+#   8. Project structure audit
+#   9. Code quality checks
+#   10. Code usage verification
 #
 # Skip checks:
 #   To skip checks temporarily, use:
@@ -25,6 +28,8 @@
 #   SKIP_FMT=1 git commit
 #   SKIP_DOCS=1 git commit
 #   SKIP_SHELL=1 git commit
+#   SKIP_AUDIT=1 git commit
+#   SKIP_QUALITY=1 git commit
 
 set -euo pipefail
 
@@ -40,6 +45,7 @@ source "${ROOT_DIR}/scripts/lib/progress/progress.sh"
 STAGED_GO_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
 STAGED_DOCS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(md|yaml|json)$' || true)
 STAGED_SHELL=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(sh|bash)$' || true)
+STAGED_CONFIG=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(toml|yml|yaml|json)$' || true)
 
 # Helper functions
 should_skip() {
@@ -100,7 +106,7 @@ show_logo
 status_msg "Running pre-commit checks" "info"
 
 # Check if any files are staged
-if [[ -z "$STAGED_GO_FILES" && -z "$STAGED_DOCS" && -z "$STAGED_SHELL" ]]; then
+if [[ -z "$STAGED_GO_FILES" && -z "$STAGED_DOCS" && -z "$STAGED_SHELL" && -z "$STAGED_CONFIG" ]]; then
     status_msg "No relevant files staged for commit" "info"
     exit 0
 fi
@@ -119,6 +125,11 @@ fi
 if [[ -n "$STAGED_SHELL" ]]; then
     status_msg "Shell scripts staged:" "info"
     echo "$STAGED_SHELL"
+fi
+
+if [[ -n "$STAGED_CONFIG" ]]; then
+    status_msg "Configuration files staged:" "info"
+    echo "$STAGED_CONFIG"
 fi
 
 # Check Docker availability
@@ -189,6 +200,30 @@ if [[ -n "$STAGED_SHELL" ]]; then
         shellcheck $STAGED_SHELL
     '" 5 || {
         status_msg "Shell script validation failed. Please fix the shellcheck issues." "error"
+        exit 1
+    }
+fi
+
+# Run project structure audit
+if ! should_skip "AUDIT"; then
+    run_check "AUDIT" "scripts/audit/project_structure.sh" 5 || {
+        status_msg "Project structure violations found. Please review docs/AUDIT_REPORT.md" "error"
+        exit 1
+    }
+fi
+
+# Run code quality checks
+if ! should_skip "QUALITY"; then
+    run_check "QUALITY" "scripts/audit/code_quality.sh" 10 || {
+        status_msg "Code quality issues found. Please review docs/CODE_QUALITY.md" "error"
+        exit 1
+    }
+fi
+
+# Run code usage verification
+if ! should_skip "USAGE"; then
+    run_check "USAGE" "scripts/audit/code_usage.sh" 5 || {
+        status_msg "Code usage issues found. Please review docs/CODE_USAGE.md" "error"
         exit 1
     }
 fi

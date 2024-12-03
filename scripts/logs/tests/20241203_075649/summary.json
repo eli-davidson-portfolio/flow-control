@@ -1,0 +1,13 @@
+{
+    "timestamp": "2024-12-03T14:56:49Z",
+    "os": "Darwin",
+    "os_version": "23.5.0",
+    "test_suites": [],
+{
+    "name": "unit tests",
+    "status": "failed",
+    "duration": 0,
+    "error": "Check /Users/eli/coding/projects/flow-control/scripts/logs/tests/20241203_075649/unit_tests.log for details"
+,"duration": 0}
+    "status": "failed"
+,"duration": 0}

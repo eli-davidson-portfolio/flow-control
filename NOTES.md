@@ -1,244 +1,77 @@
-# Flow Control Project Notes
+# Project Documentation
 
-## Deployment Environments
 
-### Development Environment
-```bash
-# Start development environment
-make dev
+## Documentation Status
+| Component | Status | Last Updated | Needs Review |
+|-----------|--------|--------------|--------------|
+System Overview|🟡 In Progress|2024-12-03|Yes
+Architecture Diagrams|❌ Not Started|-|-
+Core Components|❌ Not Started|-|-
+API Documentation|❌ Not Started|-|-
+Database Schema|❌ Not Started|-|-
+Workflows|❌ Not Started|-|-
+Glossary|❌ Not Started|-|-
+| Status Key | |
+|------------|--|
+| ✅ | Complete |
+| 🟡 | In Progress |
+| ❌ | Not Started |
+| 🔄 | Needs Update |
 
-Features:
-- Hot reload enabled
-- Test container included
-- Automatic health checks
-- Visual progress feedback
-- Container status monitoring
+## Documentation Checklist
+- [ ] Analyze go.mod for dependencies
+- [ ] Document config.sh functionality
+- [ ] Review project.txt for requirements
+- [ ] Create system architecture diagram
+- [ ] Map component relationships
+- [ ] Document API endpoints
+- [ ] Create database schema diagrams
+- [ ] Document deployment workflow
+- [ ] Create technical glossary
+- [ ] Create business glossary
+- [ ] Review and validate all diagrams
+- [ ] Cross-reference all components
 
-Access URLs:
-- App: http://localhost:8080
-- API Docs: http://localhost:8080/swagger/index.html
-- Health: http://localhost:8080/health
+## System Overview
+A comprehensive documentation of the entire codebase and its components.
 
-Useful Commands:
-- View logs: make logs
-- Run tests: make test
-- Stop environment: make clean
+## Architecture
+### High-Level System Architecture
+
+## Documentation Management
+### Automatic Documentation Tools
+- `scripts/update_docs.sh`: Main documentation update script
+- `scripts/lib/core/doc_status.sh`: Documentation status tracker
+- `scripts/lib/core/doc_analyzer.sh`: Source code analyzer
+### Usage
+
+## Go Dependencies
+```go
+module myproject
+go 1.19
+require (
+    github.com/example/pkg v1.0.0
+)
 ```
 
-### Staging Environment
+## Configuration
+### Config.sh Analysis
+The following functions are defined in the configuration system:
+#### `load_config`
+!/bin/bash
 ```bash
-# Deploy to staging
-make staging
+function load_config() {
+      echo "Loading config"
+  }
+}
+#### `validate_config`
+function validate_config() {
+      echo "Validating config"
 
-Features:
-- Automated documentation generation
-- Health verification
-- Build progress monitoring
-- Environment-aware host detection
-- Container status monitoring
-
-Access URLs:
-- App: http://<staging-ip>:8080
-- API Docs: http://<staging-ip>:8080/swagger/index.html
-- Health: http://<staging-ip>:8080/health
-- Webhook: http://<staging-ip>:9001/hooks/deploy
-
-Deployment Steps:
-1. Clean environment
-2. Install dependencies
-3. Generate API documentation
-4. Build services
-5. Start containers
-6. Verify health endpoints
-7. Display access information
-```
-
-## Build Process
-
-### Documentation Generation
-```bash
-# Documentation is automatically generated during staging builds
-# The process includes:
-1. Installing swag tool
-2. Parsing Go files for annotations
-3. Generating Swagger/OpenAPI specs
-4. Including internal packages
-5. Processing dependencies
-
-Output files:
-- docs/docs.go
-- docs/swagger.json
-- docs/swagger.yaml
-```
-
-### Container Management
-```bash
-# Container Lifecycle
-1. Build Phase
-   - Install dependencies
-   - Generate documentation
-   - Compile application
-   - Create Docker images
-
-2. Startup Phase
-   - Clean environment
-   - Start containers
-   - Wait for readiness
-   - Verify health
-
-3. Health Checks
-   - Multiple retry attempts
-   - Configurable timeouts
-   - Status monitoring
-   - Health endpoint verification
-```
-
-### Visual Feedback
-```bash
-# Progress Indicators
-- Spinner for long operations
-- Progress bars for builds
-- Color-coded status messages
-- Container health status
-- Build summary display
-
-# Status Symbols
-⟳ Operation in progress
-✓ Success
-✗ Error
-• Information
-```
-
-## Common Operations
-
-### Testing
-```bash
-# Run all tests
-make test
-
-Features:
-- Automatic test container
-- Verbose output
-- Failure logs
-- Visual progress
-
-# Format code
-make fmt
-
-# Run linters
-make lint
-
-# Run all checks
-make check
-```
-
-### Logging
-```bash
-# View container logs
-make logs
-
-Features:
-- Timestamped log files
-- Container-specific logs
-- Build logs
-- Health check logs
-- Error tracking
-```
-
-### Environment Management
-```bash
-# Clean environment
-make clean
-
-# Force cleanup
-make clean-env-force
-
-Features:
-- Container cleanup
-- Network cleanup
-- Port management
-- Resource cleanup
-```
-
-## Development Workflow
-
-1. **Local Development**
-   ```bash
-   make dev
-   # Make changes
-   # Auto-reload active
-   ```
-
-2. **Testing Changes**
-   ```bash
-   make test
-   make lint
-   make check
-   ```
-
-3. **Staging Deployment**
-   ```bash
-   make staging
-   # Verify deployment
-   # Check health endpoints
-   ```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Port Conflicts**
-   ```bash
-   # Ports needed:
-   - 8080: Main application
-   - 9001: Webhook (staging only)
-   
-   # Resolution:
-   make clean-env-force
-   ```
-
-2. **Build Failures**
-   ```bash
-   # Check build logs:
-   - Documentation generation issues
-   - Dependency problems
-   - Compilation errors
-   
-   # Resolution:
-   make clean
-   go mod tidy
-   make staging
-   ```
-
-3. **Health Check Failures**
-   ```bash
-   # Common causes:
-   - Container not ready
-   - Port conflicts
-   - Resource constraints
-   
-   # Resolution:
-   make logs
-   # Check specific container logs
-   docker compose logs <container>
-   ```
-
-### Best Practices
-
-1. **Development**
-   - Use `make dev` for local development
-   - Keep test container running
-   - Monitor health endpoints
-   - Use visual feedback
-
-2. **Testing**
-   - Run `make check` before commits
-   - Monitor test container status
-   - Check build progress
-   - Verify documentation
-
-3. **Deployment**
-   - Clean environment first
-   - Monitor build progress
-   - Verify health checks
-   - Check access URLs
+## Project Requirements
+1. Automated documentation
+2. Status tracking
+3. Analysis tools
+- Project Requirements:
+Project Requirements:
+- `load_config`: !/bin/bash

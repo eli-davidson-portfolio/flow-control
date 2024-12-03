@@ -1,0 +1,143 @@
+definitions:
+  flow-control_internal_types.FlowStatus:
+    enum:
+    - draft
+    - active
+    - paused
+    - error
+    - completed
+    type: string
+    x-enum-varnames:
+    - FlowStatusDraft
+    - FlowStatusActive
+    - FlowStatusPaused
+    - FlowStatusError
+    - FlowStatusCompleted
+  flow-control_internal_types.RuntimeFlow:
+    properties:
+      config:
+        items:
+          type: integer
+        type: array
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      status:
+        $ref: '#/definitions/flow-control_internal_types.FlowStatus'
+      updated_at:
+        type: string
+      version:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /flows:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all flows
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/flow-control_internal_types.RuntimeFlow'
+            type: array
+      summary: List all flows
+      tags:
+      - flows
+    post:
+      consumes:
+      - application/json
+      description: Create a new flow with the provided configuration
+      parameters:
+      - description: Flow configuration
+        in: body
+        name: flow
+        required: true
+        schema:
+          $ref: '#/definitions/flow-control_internal_types.RuntimeFlow'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/flow-control_internal_types.RuntimeFlow'
+      summary: Create a new flow
+      tags:
+      - flows
+  /flows/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a flow by its ID
+      parameters:
+      - description: Flow ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      summary: Delete a flow
+      tags:
+      - flows
+    get:
+      consumes:
+      - application/json
+      description: Get a flow's details by its ID
+      parameters:
+      - description: Flow ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/flow-control_internal_types.RuntimeFlow'
+      summary: Get a flow by ID
+      tags:
+      - flows
+    put:
+      consumes:
+      - application/json
+      description: Update an existing flow's configuration
+      parameters:
+      - description: Flow ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated flow configuration
+        in: body
+        name: flow
+        required: true
+        schema:
+          $ref: '#/definitions/flow-control_internal_types.RuntimeFlow'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/flow-control_internal_types.RuntimeFlow'
+      summary: Update a flow
+      tags:
+      - flows
+swagger: "2.0"

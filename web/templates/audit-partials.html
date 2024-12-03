@@ -1,0 +1,288 @@
+{{define "audit-status"}}
+<div class="flex items-center space-x-2" data-success="{{.Success}}" data-warning="{{.Warning}}">
+    <div class="w-2 h-2 rounded-full"></div>
+    <span>Last audit: {{.Time}}</span>
+</div>
+{{end}}
+
+{{define "overview-content"}}
+<div class="space-y-4">
+    <!-- Chart -->
+    <div class="h-48">
+        <canvas id="metrics-chart"
+                data-labels='{{.Metrics | keys | json}}'
+                data-values='{{.Metrics | values | json}}'></canvas>
+    </div>
+
+    <!-- Summary -->
+    <div class="grid grid-cols-3 gap-4">
+        {{range $category, $metrics := .Metrics}}
+        <div class="bg-slate-700 rounded-lg p-4">
+            <h4 class="font-semibold mb-2">{{$category}}</h4>
+            <div class="space-y-1">
+                {{range $severity, $count := $metrics}}
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-300">{{$severity}}</span>
+                    <span class="font-mono">{{$count}}</span>
+                </div>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}
+
+{{define "issues-content"}}
+<div class="space-y-2">
+    {{range .}}
+    <div class="issue-item bg-slate-700 rounded-lg p-4" data-severity="{{.Severity}}">
+        <div class="flex items-start justify-between">
+            <div>
+                <div class="flex items-center space-x-2">
+                    {{if eq .Severity "error"}}
+                    <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                    {{else if eq .Severity "warning"}}
+                    <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                    {{else}}
+                    <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                    {{end}}
+                    <span class="font-semibold">{{.Category}}</span>
+                </div>
+                <p class="mt-1 text-slate-300">{{.Message}}</p>
+            </div>
+            <span class="text-sm text-slate-400">{{.CreatedAt | formatTime}}</span>
+        </div>
+        {{if .Details}}
+        <pre class="mt-2 text-sm bg-slate-800 rounded p-2 overflow-auto">{{.Details}}</pre>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{end}}
+
+{{define "structure-content"}}
+<div class="file-tree">
+    {{template "file-tree-node" .}}
+</div>
+{{end}}
+
+{{define "file-tree-node"}}
+<div class="file-tree-item">
+    {{if .Children}}
+    <button class="file-tree-toggle">▼</button>
+    {{end}}
+    <span class="font-mono">{{.Name}}</span>
+    {{if .Type}}
+    <span class="text-sm text-slate-400">({{.Type}})</span>
+    {{end}}
+    {{if .FileCount}}
+    <span class="text-sm text-slate-400">{{.FileCount}} files</span>
+    {{end}}
+    {{if .Children}}
+    <div class="file-tree-children ml-4">
+        {{range .Children}}
+        {{template "file-tree-node" .}}
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{end}}
+
+{{define "quality-content"}}
+<div class="space-y-4">
+    <!-- Coverage Chart -->
+    <div class="grid grid-cols-2 gap-4">
+        <div class="bg-slate-700 rounded-lg p-4">
+            <h4 class="font-semibold mb-4">Overall Coverage</h4>
+            <div class="h-48">
+                <canvas id="coverage-chart"
+                        data-covered="{{.AverageCoverage}}"></canvas>
+            </div>
+        </div>
+        <div class="bg-slate-700 rounded-lg p-4">
+            <h4 class="font-semibold mb-4">Complexity Distribution</h4>
+            <div class="h-48">
+                <canvas id="complexity-chart"
+                        data-labels='{{.ComplexityRanges | json}}'
+                        data-values='{{.ComplexityCounts | json}}'></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Files Table -->
+    <div class="bg-slate-700 rounded-lg p-4">
+        <h4 class="font-semibold mb-4">Files Needing Attention</h4>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="text-left text-sm text-slate-400">
+                        <th class="pb-2">File</th>
+                        <th class="pb-2">Lines</th>
+                        <th class="pb-2">Complexity</th>
+                        <th class="pb-2">Functions</th>
+                        <th class="pb-2">Coverage</th>
+                    </tr>
+                </thead>
+                <tbody class="text-sm">
+                    {{range .}}
+                    <tr class="border-t border-slate-600">
+                        <td class="py-2 font-mono">{{.Path}}</td>
+                        <td class="py-2">{{.LOC}}</td>
+                        <td class="py-2">{{.Complexity}}</td>
+                        <td class="py-2">{{.Functions}}</td>
+                        <td class="py-2">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-16 bg-slate-600 rounded-full h-2">
+                                    <div class="bg-blue-500 rounded-full h-2"
+                                         style="width: {{.Coverage}}%"></div>
+                                </div>
+                                <span>{{printf "%.1f" .Coverage}}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "usage-content"}}
+<div class="space-y-4">
+    {{range .}}
+    <div class="bg-slate-700 rounded-lg p-4">
+        <div class="flex items-start justify-between">
+            <div>
+                <div class="flex items-center space-x-2">
+                    {{if eq .Status "unused"}}
+                    <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                    {{else}}
+                    <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                    {{end}}
+                    <span class="font-mono">{{.Path}}</span>
+                </div>
+                <div class="mt-1 text-sm text-slate-400">
+                    Type: {{.Type}} | Dependencies: {{.DependencyCount}}
+                </div>
+            </div>
+            <button class="px-2 py-1 text-xs rounded-md bg-slate-600 hover:bg-slate-500"
+                    hx-get="/audit/usage/details/{{.Path}}"
+                    hx-target="next div">
+                Details
+            </button>
+        </div>
+        <div class="details hidden mt-2"></div>
+    </div>
+    {{end}}
+</div>
+{{end}}
+
+{{define "documentation-content"}}
+<div class="space-y-4">
+    {{range .}}
+    <div class="bg-slate-700 rounded-lg p-4">
+        <div class="flex items-start justify-between">
+            <div>
+                <span class="font-mono">{{.Path}}</span>
+                <div class="mt-2 flex space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 rounded-full {{if .HasReadme}}bg-green-500{{else}}bg-red-500{{end}}"></div>
+                        <span class="text-sm">README</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 rounded-full {{if .HasTests}}bg-green-500{{else}}bg-red-500{{end}}"></div>
+                        <span class="text-sm">Tests</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 rounded-full {{if .HasDocs}}bg-green-500{{else}}bg-red-500{{end}}"></div>
+                        <span class="text-sm">Documentation</span>
+                    </div>
+                </div>
+            </div>
+            <span class="text-sm text-slate-400">Last updated: {{.LastUpdated | formatTime}}</span>
+        </div>
+    </div>
+    {{end}}
+</div>
+{{end}}
+
+{{define "dependencies-content"}}
+<div class="space-y-4">
+    <!-- Dependency Graph -->
+    <div class="bg-slate-700 rounded-lg p-4">
+        <h4 class="font-semibold mb-4">Dependency Graph</h4>
+        <div class="h-96" id="dependency-graph"></div>
+    </div>
+
+    <!-- Dependency List -->
+    <div class="bg-slate-700 rounded-lg p-4">
+        <h4 class="font-semibold mb-4">Top Dependencies</h4>
+        <div class="space-y-2">
+            {{range .}}
+            <div class="flex items-center justify-between text-sm">
+                <div class="flex-1">
+                    <div class="font-mono">{{.SourcePath}}</div>
+                    <div class="text-slate-400">→ {{.TargetPath}}</div>
+                </div>
+                <div class="text-right">
+                    <div>Depth: {{.MinDepth}}</div>
+                    <div class="text-slate-400">Paths: {{.PathCount}}</div>
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vis-network/dist/vis-network.min.js"></script>
+<script>
+document.addEventListener('htmx:afterSettle', function() {
+    const container = document.getElementById('dependency-graph');
+    if (!container) return;
+
+    // Create nodes and edges from the data
+    const nodes = new vis.DataSet();
+    const edges = new vis.DataSet();
+    
+    {{range .}}
+    nodes.add({ id: {{.SourcePath}}, label: {{.SourcePath}} });
+    nodes.add({ id: {{.TargetPath}}, label: {{.TargetPath}} });
+    edges.add({
+        from: {{.SourcePath}},
+        to: {{.TargetPath}},
+        arrows: 'to',
+        width: Math.log({{.PathCount}}) + 1
+    });
+    {{end}}
+
+    // Create network
+    const data = { nodes, edges };
+    const options = {
+        nodes: {
+            shape: 'box',
+            font: {
+                face: 'monospace',
+                size: 12
+            }
+        },
+        edges: {
+            smooth: {
+                type: 'cubicBezier',
+                forceDirection: 'horizontal'
+            }
+        },
+        layout: {
+            hierarchical: {
+                direction: 'LR',
+                sortMethod: 'directed'
+            }
+        },
+        physics: false
+    };
+
+    new vis.Network(container, data, options);
+});
+</script>
+{{end}} 

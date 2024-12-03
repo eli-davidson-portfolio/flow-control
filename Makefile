@@ -1,288 +1,184 @@
-# Use bash for shell commands
-SHELL := /bin/bash
+# Environment parameters
+ENV_DEV=dev
+ENV_STAGING=staging
+VERIFY_DIR=scripts/verify
+DOCKER_COMPOSE=docker compose
+DOCKER_COMPOSE_DEV=$(DOCKER_COMPOSE) -f config/dev/docker-compose.yml
+DOCKER_COMPOSE_STAGING=$(DOCKER_COMPOSE) -f config/staging/docker-compose.staging.yml
 
-# Environment settings
-INSTALL_DIR := $(shell pwd)
-SCRIPTS_DIR := $(INSTALL_DIR)/scripts
-LIB_DIR := $(SCRIPTS_DIR)/lib
-PROGRESS_SCRIPT := $(LIB_DIR)/progress/progress.sh
+# Directory structure
+BUILD_DIR=build
+BIN_DIR=bin
+DATA_DIR=data
+LOG_DIR=logs
+BACKUP_DIR=backups
+CONFIG_DIR=config
+COVERAGE_DIR=coverage
+TEST_DIR=tests
+SCRIPT_DIR=scripts
 
-# Source all library functions
-export BASH_ENV := $(LIB_DIR)/env/utils.sh
+# Build parameters
+BINARY_NAME=flow-control
+GO_FILES=$(shell find . -name '*.go' -not -path "./vendor/*")
+VERSION=$(shell git describe --tags --always --dirty)
+GO_VERSION=$(shell go version | cut -d' ' -f3 | sed 's/go//')
 
-# Test settings
-TEST_TIMEOUT := 5m
-TEST_FLAGS := -v -race -cover
-TEST_DIRS := ./...
+# Test parameters
+FAIL_FAST=true
+TEST_TIMEOUT=5m
+COVERAGE_PROFILE=$(COVERAGE_DIR)/coverage.out
+COVERAGE_HTML=$(COVERAGE_DIR)/coverage.html
 
-.PHONY: all build run test clean lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging verify-staging clean-env clean-env-force test-scripts
+# Build targets
+.PHONY: all dev staging verify-dev verify-staging test clean docker-clean docker-prune audit audit-all audit-structure audit-quality audit-code verify-all
 
-all: check build
+# Verification targets
+verify-all: verify-dev audit-all test
+	@echo "All verifications completed successfully"
 
-# Run all script tests
-test-scripts:
-	@echo "Running script tests..."
-	@for test in $(LIB_DIR)/test/*_test.sh; do \
-		echo "\nRunning $$test"; \
-		bash "$$test" || exit 1; \
-	done
+# Development environment
+verify-dev:
+	@echo "Verifying development environment..."
+	@ENVIRONMENT=$(ENV_DEV) $(VERIFY_DIR)/dev_checks.sh
 
-# Helper target for force cleanup
-clean-env-force:
-	@bash -c 'source $(LIB_DIR)/docker/manager.sh && docker_force_cleanup'
+# Audit targets
+audit-structure:
+	@echo "Running project structure audit..."
+	@$(SCRIPT_DIR)/audit/project_structure.sh
 
-# Helper target to ensure clean environment
-clean-env:
-	@bash -c 'source $(LIB_DIR)/docker/manager.sh && \
-		source $(LIB_DIR)/ports/manager.sh && \
-		echo "Cleaning up environment..." && \
-		docker_stop_all && \
-		docker_remove_all && \
-		docker_clean_networks'
+audit-quality:
+	@echo "Running code quality audit..."
+	@$(SCRIPT_DIR)/audit/code_quality.sh
 
-# Helper target to ensure ports are free
-ensure-ports:
-	@bash -c 'source $(LIB_DIR)/ports/manager.sh && \
-		free_ports 8080 9001 && \
-		if ! wait_for_port 8080 10 2 || ! wait_for_port 9001 10 2; then \
-			echo "Standard cleanup failed, attempting force cleanup..." && \
-			docker_force_cleanup && \
-			if ! wait_for_port 8080 10 2 || ! wait_for_port 9001 10 2; then \
-				echo "Failed to free ports even after force cleanup" && \
-				exit 1; \
-			fi; \
-		fi'
+audit-code:
+	@echo "Running code usage audit..."
+	@$(SCRIPT_DIR)/audit/code_usage.sh
 
-# Ensure test container is ready
-ensure-test-container:
-	@bash -c '. $(PROGRESS_SCRIPT) && \
-		status_msg "Preparing test environment" "info" && \
-		if ! docker compose ps test | grep -q "Up"; then \
-			status_msg "Starting test container..." "info" && \
-			docker compose up -d test && \
-			status_msg "Waiting for test container to be ready..." "info" && \
-			for i in $$(seq 1 30); do \
-				if docker compose exec -T test true 2>/dev/null; then \
-					status_msg "Test container is ready" "success" && \
-					exit 0; \
-				fi; \
-				sleep 1; \
-			done; \
-			status_msg "Test container failed to start" "error" && \
-			exit 1; \
-		else \
-			status_msg "Test container is already running" "success"; \
-		fi'
+audit: audit-structure audit-quality audit-code
+	@echo "All audits completed. Check docs/ directory for reports."
 
-# Run tests with proper output handling
-test: ensure-test-container ## Run tests
-	@bash -c '. $(PROGRESS_SCRIPT) && \
-		show_logo && \
-		status_msg "Running tests..." "info" && \
-		LOG_DIR="logs/test-$$(date +%Y%m%d_%H%M%S)" && \
-		mkdir -p "$$LOG_DIR" && \
-		if docker compose exec -T test bash -c "cd /app && \
-			go test $(TEST_FLAGS) -timeout $(TEST_TIMEOUT) $(TEST_DIRS)" > "$$LOG_DIR/test.log" 2>&1; then \
-			status_msg "Tests completed successfully" "success" && \
-			cat "$$LOG_DIR/test.log"; \
-		else \
-			status_msg "Tests failed" "error" && \
-			cat "$$LOG_DIR/test.log" && \
-			status_msg "Test logs saved to $$LOG_DIR/test.log" "info" && \
-			exit 1; \
-		fi'
+audit-all: audit test-coverage
+	@echo "Full project audit completed."
 
-# Capture logs before cleanup
-capture-logs:
-	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
-		LOG_DIR="logs/deploy-$$(date +%Y%m%d_%H%M%S)" && \
-		mkdir -p $$LOG_DIR && \
-		log_info "Capturing logs to $$LOG_DIR" && \
-		echo "App Logs:" > "$$LOG_DIR/app.log" && \
-		docker logs flow-control-app-1 >> "$$LOG_DIR/app.log" 2>&1 || true && \
-		echo "Webhook Logs:" > "$$LOG_DIR/webhook.log" && \
-		docker logs flow-control-webhook-1 >> "$$LOG_DIR/webhook.log" 2>&1 || true && \
-		docker compose -f docker-compose.staging.yml ps > "$$LOG_DIR/containers.log" 2>&1 || true && \
-		log_info "Logs captured to $$LOG_DIR"'
+# Testing targets
+test-setup:
+	@echo "Setting up test environment..."
+	@mkdir -p $(COVERAGE_DIR)
+	@mkdir -p $(DATA_DIR)
+	@mkdir -p $(LOG_DIR)/tests
 
-# Verify staging deployment
+test: test-setup
+	@echo "Running all tests..."
+	@FAIL_FAST=$(FAIL_FAST) $(TEST_DIR)/framework/run_all.sh
+
+test-level-%: test-setup
+	@echo "Running tests for level $*..."
+	@FAIL_FAST=$(FAIL_FAST) $(TEST_DIR)/framework/run_level.sh $*
+
+test-unit: test-setup
+	@echo "Running unit tests..."
+	@go test -v -timeout $(TEST_TIMEOUT) -coverprofile=$(COVERAGE_PROFILE) ./internal/... ./pkg/...
+	@go tool cover -html=$(COVERAGE_PROFILE) -o $(COVERAGE_HTML)
+
+test-integration: test-setup
+	@echo "Running integration tests..."
+	@$(DOCKER_COMPOSE) run --rm test go test -v -tags=integration ./tests/integration/...
+
+test-coverage: test-setup
+	@echo "Running tests with coverage..."
+	@go test -v -coverprofile=$(COVERAGE_PROFILE) ./...
+	@go tool cover -html=$(COVERAGE_PROFILE) -o $(COVERAGE_HTML)
+	@go tool cover -func=$(COVERAGE_PROFILE)
+
+test-audit:
+	@echo "Running code usage audit..."
+	@$(SCRIPT_DIR)/audit/code_usage.sh
+
+# Main development target
+dev: verify-all
+	@echo "Starting development environment..."
+	@echo "Creating required directories..." && \
+	mkdir -p $(DATA_DIR) $(LOG_DIR) $(BACKUP_DIR) && \
+	echo "Starting Docker services..." && \
+	$(DOCKER_COMPOSE_DEV) up --build -d && \
+	echo "Waiting for services to be healthy..." && \
+	$(DOCKER_COMPOSE_DEV) logs -f dev & \
+	until $(DOCKER_COMPOSE_DEV) exec dev curl -s http://localhost:8081/health >/dev/null; do \
+		sleep 1; \
+	done && \
+	echo "Development environment is ready!" && \
+	echo "API: http://localhost:8081" && \
+	echo "Webhook: http://localhost:9001" && \
+	echo "Logs: tail -f $(LOG_DIR)/dev.log" && \
+	$(DOCKER_COMPOSE_DEV) logs -f
+
+# Staging environment
 verify-staging:
-	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
-		log_info "Verifying deployment..." && \
-		echo "Checking container status..." && \
-		sleep 2 && \
-		APP_STATUS=$$(docker inspect -f "{{.State.Status}}" flow-control-app-1 2>/dev/null) && \
-		WEBHOOK_STATUS=$$(docker inspect -f "{{.State.Status}}" flow-control-webhook-1 2>/dev/null) && \
-		if [ "$$APP_STATUS" != "running" ] || [ "$$WEBHOOK_STATUS" != "running" ]; then \
-			log_error "Containers not running properly:" && \
-			echo "  • App Status: $$APP_STATUS" && \
-			echo "  • Webhook Status: $$WEBHOOK_STATUS" && \
-			$(MAKE) capture-logs && \
-			exit 1; \
-		fi && \
-		log_info "Containers are running. Checking health endpoints..." && \
-		MAX_RETRIES=6 && \
-		RETRY_COUNT=0 && \
-		while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do \
-			APP_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/health || echo "failed") && \
-			WEBHOOK_HEALTH=$$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:9001/hooks || echo "failed") && \
-			echo "Health check attempt $$((RETRY_COUNT + 1))/$$MAX_RETRIES:" && \
-			echo "  • App: $$APP_HEALTH" && \
-			echo "  • Webhook: $$WEBHOOK_HEALTH" && \
-			if [ "$$APP_HEALTH" = "200" ] && [ "$$WEBHOOK_HEALTH" = "200" ]; then \
-				log_info "Deployment verified successfully!" && \
-				echo -e "\nServices are available at:" && \
-				echo -e "  • App: http://127.0.0.1:8080" && \
-				echo -e "  • Webhook: http://127.0.0.1:9001" && \
-				echo -e "\nHealth check endpoints:" && \
-				echo -e "  • App: http://127.0.0.1:8080/health ($$APP_HEALTH)" && \
-				echo -e "  • Webhook: http://127.0.0.1:9001/hooks ($$WEBHOOK_HEALTH)" && \
-				exit 0; \
-			fi; \
-			RETRY_COUNT=$$((RETRY_COUNT + 1)); \
-			[ $$RETRY_COUNT -lt $$MAX_RETRIES ] && sleep 5; \
-		done; \
-		log_error "Health checks failed after $$MAX_RETRIES attempts" && \
-		$(MAKE) capture-logs && \
-		log_warning "Services are running but health checks failed. Check logs in logs/deploy-* directory" && \
-		exit 1'
+	@echo "Verifying staging environment..."
+	@ENVIRONMENT=$(ENV_STAGING) $(VERIFY_DIR)/staging_checks.sh
 
-# Staging deployment
-staging: clean-env
-	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
-		log_info "Deploying to staging environment" && \
-		if ! $(SCRIPTS_DIR)/staging/deploy.sh; then \
-			log_error "Deployment failed" && \
-			exit 1; \
-		fi && \
-		log_info "Deployment completed, verifying..." && \
-		$(MAKE) verify-staging'
+staging: verify-staging
+	@echo "Starting staging environment..."
+	@if [ $$? -eq 0 ]; then \
+		echo "Creating required directories..." && \
+		mkdir -p $(DATA_DIR) $(LOG_DIR) $(BACKUP_DIR) && \
+		echo "Building production images..." && \
+		$(DOCKER_COMPOSE_STAGING) build --no-cache && \
+		echo "Starting services..." && \
+		$(DOCKER_COMPOSE_STAGING) up -d && \
+		echo "Waiting for services to be healthy..." && \
+		until $(DOCKER_COMPOSE_STAGING) exec app curl -s http://localhost:8080/health >/dev/null; do \
+			sleep 1; \
+		done && \
+		echo "Staging environment is ready!" && \
+		echo "API: http://localhost:8080" && \
+		echo "Webhook: http://localhost:9001" && \
+		echo "Logs: tail -f $(LOG_DIR)/staging.log" && \
+		$(DOCKER_COMPOSE_STAGING) logs -f; \
+	else \
+		echo "Environment verification failed. Please fix the issues and try again."; \
+		exit 1; \
+	fi
 
-setup-staging: staging
-	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
-		log_info "Initializing staging environment setup" && \
-		if [ ! -f scripts/setup/setup-env.sh ]; then \
-			log_error "setup-env.sh script not found"; \
-			exit 1; \
-		fi; \
-		if [ ! -f scripts/common/init.sh ]; then \
-			log_error "init.sh script not found"; \
-			exit 1; \
-		fi; \
-		chmod +x scripts/setup/setup-env.sh scripts/common/init.sh && \
-		log_info "Running setup script" && \
-		bash -x scripts/setup/setup-env.sh \
-			--env staging \
-			--user deploy \
-			--dir $(INSTALL_DIR) \
-			--branch staging \
-			--skip-memory-check || { \
-			log_error "Setup script failed"; \
-			exit 1; \
-		}'
-
-logs: ## View container logs
-	@source scripts/common/init.sh && \
-	log_info "Capturing container logs" && \
-	log_file=$$(capture_logs) && \
-	log_info "Container logs saved to $$log_file" && \
-	cat "$$log_file"
-
-dev: ## Start development environment
-	@bash scripts/dev/deploy.sh
-
-build:
-	@echo "Building application..."
-	@bash -c ". $(PROGRESS_SCRIPT) && \
-		show_logo && \
-		status_msg 'Starting build process' 'info' && \
-		(docker compose run --rm test go build -o flow-control ./cmd/flowcontrol & progress_bar 30) && \
-		complete_task 'Build complete!'"
-
-run: check
-	@echo "Starting application..."
-	@bash -c ". $(PROGRESS_SCRIPT) && \
-		show_logo && \
-		status_msg 'Launching development server' 'info' && \
-		docker compose up dev"
-
-fmt: ensure-test-container ## Format code
-	@echo "Formatting code..."
-	@bash -c ". $(PROGRESS_SCRIPT) && \
-		status_msg 'Formatting code' 'info' && \
-		(docker compose exec -T test bash -c 'cd /app && go fmt ./...' & progress_bar 5) && \
-		complete_task 'Formatting complete!'"
-
-lint: ensure-test-container ## Run linters
-	@echo "Running linters..."
-	@bash -c ". $(PROGRESS_SCRIPT) && \
-		status_msg 'Starting code analysis' 'info' && \
-		(docker compose exec -T test bash -c 'cd /app && \
-			go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && \
-			/go/bin/golangci-lint run' & progress_bar 15) && \
-		complete_task 'Linting complete!'"
-
+# Cleanup targets
 clean:
-	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
-		log_info "Cleaning up environment..." && \
-			docker compose -f docker-compose.staging.yml down --remove-orphans && \
-			docker system prune -f > /dev/null 2>&1 || true && \
-			rm -rf logs/deploy-* || true'
+	@echo "Cleaning build artifacts..."
+	@rm -rf $(BUILD_DIR)
+	@rm -rf $(BIN_DIR)
+	@rm -rf $(COVERAGE_DIR)
+	@rm -f go.sum
 
-check: fmt lint test ## Run all checks
-	@bash -c ". $(PROGRESS_SCRIPT) && \
-		status_msg 'All checks passed!' 'success'"
+docker-clean:
+	@echo "Stopping and removing containers..."
+	@$(DOCKER_COMPOSE) down -v
+	@$(DOCKER_COMPOSE_STAGING) down -v
 
-install-tools:
-	@bash -c ". $(PROGRESS_SCRIPT) && \
-		show_logo && \
-		status_msg 'Installing development tools' 'info' && \
-		rm -f .git/hooks/pre-commit && \
-		ln -s ../../scripts/pre-commit .git/hooks/pre-commit && \
-		chmod +x scripts/pre-commit && \
-		(docker compose run --rm test sh -c '\
-			chmod +x scripts/tools/install-cli.sh && \
-			./scripts/tools/install-cli.sh' & progress_bar 10) && \
-		complete_task 'Tools installed successfully!'"
+docker-prune:
+	@echo "Pruning Docker system..."
+	@docker system prune -f
 
-pre-commit: check
-	@bash -c ". $(PROGRESS_SCRIPT) && \
-		status_msg 'Pre-commit checks passed!' 'success'"
+# Development utilities
+logs:
+	@echo "Showing logs..."
+	@$(DOCKER_COMPOSE) logs -f
 
-docker-test:
-	@echo "Running Docker tests..."
-	@bash -c ". $(PROGRESS_SCRIPT) && \
-		show_logo && \
-		status_msg 'Initializing Docker test suite' 'info' && \
-		(docker compose run --rm test go test ./... & progress_bar 20) && \
-		complete_task 'Docker tests complete!'"
+ps:
+	@echo "Showing running containers..."
+	@$(DOCKER_COMPOSE) ps
 
-docker-check:
-	@echo "Running Docker checks..."
-	@bash -c ". $(PROGRESS_SCRIPT) && \
-		status_msg 'Starting Docker code analysis' 'info' && \
-		(docker compose run --rm test sh -c '\
-			go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && \
-			/go/bin/golangci-lint run' & progress_bar 15) && \
-		complete_task 'Docker code analysis complete!'"
+restart:
+	@echo "Restarting services..."
+	@$(DOCKER_COMPOSE) restart
 
-help:
-	@bash -c ". $(PROGRESS_SCRIPT) && \
-		show_logo && \
-		echo -e '\n${CYAN}Available targets:${NC}' && \
-		echo '  make build       - Build the binary' && \
-		echo '  make run        - Run the application' && \
-		echo '  make test       - Run all tests' && \
-		echo '  make lint       - Run linters' && \
-		echo '  make fmt        - Format code' && \
-		echo '  make check      - Run all checks' && \
-		echo '  make clean      - Clean build artifacts' && \
-		echo '  make install-tools - Install git hooks' && \
-		echo '  make pre-commit - Run pre-commit checks' && \
-		echo '  make dev        - Run development server' && \
-		echo '  make staging    - Deploy to staging' && \
-		echo '  make setup-staging - Set up staging environment' && \
-		echo '  make help       - Show this help message'"
+rebuild:
+	@echo "Rebuilding services..."
+	@$(DOCKER_COMPOSE) build --no-cache
+	@$(DOCKER_COMPOSE) up -d
 
-# Mark targets that don't create files
-.PHONY: clean staging logs
+shell:
+	@echo "Opening shell in development container..."
+	@$(DOCKER_COMPOSE) exec dev /bin/bash
+
+test-shell:
+	@echo "Opening shell in test container..."
+	@$(DOCKER_COMPOSE) exec test /bin/bash

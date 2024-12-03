@@ -2,16 +2,17 @@
 # test.sh
 #
 # Purpose:
-#   Runs the test suite for the Flow Control project with configurable options.
-#   All tests are run in Docker containers - local execution is not supported.
-#   Automatically runs go mod tidy before tests to ensure dependency consistency.
+#   Runs the complete test suite for the Flow Control project.
+#   Executes both Go tests in Docker containers and shell script tests.
+#   Provides coverage reporting and various test configuration options.
+#   Ensures consistent test environment and dependency management.
 #
 # Usage:
 #   ./test.sh [options]
 #
 # Options:
 #   --coverage      Generate test coverage report (default: false)
-#   --race         Enable race detection (default: false)
+#   --race         Enable race detection for Go tests (default: false)
 #   --integration  Run integration tests (default: false)
 #   --verbose      Enable verbose test output (default: false)
 #   --failfast     Stop on first test failure (default: false)
@@ -20,125 +21,61 @@
 #   TEST_FLAGS     Additional flags to pass to go test
 #   TEST_TIMEOUT   Test timeout duration (default: 5m)
 #   TEST_PATTERN   Pattern to match test files (default: "")
+#
+# Dependencies:
+#   - Docker: For running Go tests
+#   - kcov: For shell script coverage (if --coverage is used)
+#   - bash: Shell interpreter (4.0+)
+#
+# Exit Codes:
+#   0: All tests passed
+#   1: Test execution failed
+#   2: Environment setup failed
 
 set -e
 
 # Source common functions and variables
 source "$(dirname "$0")/common/init.sh"
+source "$(dirname "$0")/lib/core/test.sh"
 
-# Test configuration
-TEST_TIMEOUT=${TEST_TIMEOUT:-"5m"}
-TEST_FLAGS=${TEST_FLAGS:-""}
-TEST_PATTERN=${TEST_PATTERN:-""}
-COVERAGE_DIR="coverage"
-COVERAGE_PROFILE="$COVERAGE_DIR/coverage.out"
-COVERAGE_HTML="$COVERAGE_DIR/coverage.html"
+# Configure test flags based on command line arguments
+#
+# Processes command line arguments and sets up test configuration.
+# See configure_test_flags in lib/core/test.sh for details.
+configure_test_flags "$@"
 
-# Parse command line arguments
-COVERAGE_ENABLED=false
-RACE_DETECTION=false
-INTEGRATION_TESTS=false
-VERBOSE_OUTPUT=false
-FAIL_FAST=false
+# Run Go tests in Docker environment
+#
+# Executes Go tests within a Docker container for consistent environment.
+# Handles test flags, timeouts, and patterns.
+# See run_tests_in_docker in lib/core/test.sh for details.
+run_tests_in_docker "$TEST_FLAGS" "$TEST_PATTERN" "$TEST_TIMEOUT"
 
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --coverage)
-            COVERAGE_ENABLED=true
-            shift
-            ;;
-        --race)
-            RACE_DETECTION=true
-            shift
-            ;;
-        --integration)
-            INTEGRATION_TESTS=true
-            shift
-            ;;
-        --verbose)
-            VERBOSE_OUTPUT=true
-            shift
-            ;;
-        --failfast)
-            FAIL_FAST=true
-            shift
-            ;;
-        *)
-            echo "Unknown option: $1"
-            exit 1
-            ;;
-    esac
-done
-
-# Build test flags
+# Run shell script tests with optional coverage
 if [[ "$COVERAGE_ENABLED" == "true" ]]; then
-    mkdir -p "$COVERAGE_DIR"
-    TEST_FLAGS="$TEST_FLAGS -coverprofile=$COVERAGE_PROFILE"
+    log_info "Running shell script tests with coverage..."
+    if ! "$(dirname "$0")/tests/coverage/coverage.sh"; then
+        log_error "Shell script tests failed"
+        exit 1
+    fi
+else
+    log_info "Running shell script tests..."
+    for test_type in unit integration workflows; do
+        log_info "Running $test_type tests..."
+        while IFS= read -r -d '' test_file; do
+            log_info "Running test: $test_file"
+            if ! bash "$test_file"; then
+                log_error "Test failed: $test_file"
+                exit 1
+            fi
+        done < <(find "$(dirname "$0")/tests/$test_type" -name '*_test.sh' -print0)
+    done
 fi
-
-if [[ "$RACE_DETECTION" == "true" ]]; then
-    TEST_FLAGS="$TEST_FLAGS -race"
-fi
-
-if [[ "$VERBOSE_OUTPUT" == "true" ]]; then
-    TEST_FLAGS="$TEST_FLAGS -v"
-fi
-
-if [[ "$FAIL_FAST" == "true" ]]; then
-    TEST_FLAGS="$TEST_FLAGS -failfast"
-fi
-
-# Set test pattern for integration tests
-if [[ "$INTEGRATION_TESTS" == "true" ]]; then
-    TEST_PATTERN="Integration"
-fi
-
-# Ensure Docker environment is ready
-log_info "Ensuring Docker environment..."
-if ! ./scripts/docker-check.sh --quiet; then
-    log_error "Docker environment is not ready. If you see Go version mismatch errors, this is why."
-    log_error "Please ensure Docker is running and try again."
-    exit 1
-fi
-
-# Run go mod tidy in Docker first
-log_info "Running go mod tidy in Docker..."
-if ! docker-compose run --rm test go mod tidy; then
-    log_error "Failed to run go mod tidy in Docker"
-    exit 1
-fi
-
-# Verify go.mod and go.sum haven't changed
-if ! git diff --exit-code go.mod go.sum; then
-    log_error "go.mod or go.sum changed after running go mod tidy"
-    log_error "Please commit these changes before running tests"
-    exit 1
-fi
-
-# Run tests in Docker
-log_info "Running tests in Docker..."
-docker-compose run --rm test go test $TEST_FLAGS -timeout=$TEST_TIMEOUT ${TEST_PATTERN:+-run=$TEST_PATTERN} ./...
 
 # Generate coverage report if enabled
-if [[ "$COVERAGE_ENABLED" == "true" && -f "$COVERAGE_PROFILE" ]]; then
-    log_info "Generating coverage report..."
-    docker-compose run --rm test go tool cover -html="$COVERAGE_PROFILE" -o "$COVERAGE_HTML"
-    
-    # Print coverage summary
-    coverage_pct=$(docker-compose run --rm test go tool cover -func="$COVERAGE_PROFILE" | grep total | awk '{print $3}')
-    log_info "Total coverage: $coverage_pct"
-    
-    # Open coverage report in browser if not in CI
-    if [[ -z "$CI" ]]; then
-        case "$(uname)" in
-            Darwin)
-                open "$COVERAGE_HTML"
-                ;;
-            Linux)
-                if command -v xdg-open &>/dev/null; then
-                    xdg-open "$COVERAGE_HTML"
-                fi
-                ;;
-        esac
-    fi
+#
+# Creates a combined coverage report for both Go and shell script tests.
+# Only runs if --coverage flag is provided.
+if [[ "$COVERAGE_ENABLED" == "true" ]]; then
+    generate_coverage_report
 fi

@@ -1,0 +1,7 @@
+{
+        "protocol_version": "1.0",
+        "level": "5",
+        "state": {"package":"store"},
+        "metadata": {"coverage_dir":"/coverage/go"},
+        "timestamp": "2024-12-03T19:58:39Z"
+    }

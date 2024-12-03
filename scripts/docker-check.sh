@@ -5,29 +5,18 @@
 #   Ensures Docker environment is ready and running.
 #   This script will not fall back to local execution - Docker is required.
 #   If Docker is not installed or not running, it will attempt to fix the situation.
-#
-# Usage:
-#   ./docker-check.sh [options]
-#
-# Options:
-#   --quiet         Suppress non-essential output
-#   --no-compose    Skip Docker Compose checks
-#
-# Exit Codes:
-#   0 - Docker environment is ready
-#   1 - Fatal error occurred
-#   2 - Docker installation failed
-#   3 - Docker startup failed
-#   4 - Resource constraints
 
 set -e
 
-# Script configuration
-CACHE_DIR="${HOME}/.cache/flow-control"
-CACHE_DURATION=300 # 5 minutes
-DOCKER_MIN_VERSION="20.10.0"
-COMPOSE_MIN_VERSION="2.0.0"
-DOCKER_MIN_SPACE=10 # GB
+# Source required libraries
+source "$(dirname "$0")/common/init.sh"
+source "$(dirname "$0")/lib/docker/docker.sh"
+
+# Constants
+MIN_DOCKER_VERSION="20.10.0"
+REQUIRED_PORTS=(8081)
+MIN_MEMORY_GB=4
+MIN_CPU_CORES=2
 
 # Parse flags
 QUIET=false
@@ -43,201 +32,149 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            echo "Unknown option: $1"
+            log_error "Unknown option: $1"
             exit 1
             ;;
     esac
 done
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Helper functions
-log_debug() { [[ "$QUIET" == "false" ]] && echo -e "${BLUE}[DEBUG]${NC} $1" >&2; }
-log_info() { [[ "$QUIET" == "false" ]] && echo -e "${GREEN}[INFO]${NC} $1" >&2; }
-log_warn() { echo -e "${YELLOW}[WARN]${NC} $1" >&2; }
-log_error() { echo -e "${RED}[ERROR]${NC} $1" >&2; }
-
-# Function to install Docker
-install_docker() {
-    log_info "Installing Docker..."
-    case "$(uname)" in
-        Darwin)
-            if command -v brew &>/dev/null; then
-                brew install --cask docker
-            else
-                log_error "Please install Docker Desktop from https://www.docker.com/products/docker-desktop"
-                return 1
-            fi
-            ;;
-        Linux)
-            if command -v apt-get &>/dev/null; then
-                curl -fsSL https://get.docker.com -o get-docker.sh
-                sudo sh get-docker.sh
-                sudo usermod -aG docker "$USER"
-                rm get-docker.sh
-            elif command -v dnf &>/dev/null; then
-                sudo dnf -y install docker
-                sudo systemctl enable docker
-                sudo usermod -aG docker "$USER"
-            else
-                log_error "Unsupported Linux distribution"
-                return 1
-            fi
-            ;;
-        *)
-            log_error "Unsupported operating system"
-            return 1
-            ;;
-    esac
-    return 0
+# Check Docker version
+check_docker_version() {
+    local current_version=$(docker version --format '{{.Server.Version}}' 2>/dev/null)
+    if [[ "$(printf '%s\n' "$MIN_DOCKER_VERSION" "$current_version" | sort -V | head -n1)" != "$MIN_DOCKER_VERSION" ]]; then
+        log_error "Docker version $current_version is below minimum required version $MIN_DOCKER_VERSION"
+        return 1
+    fi
 }
 
-# Function to install Docker Compose
-install_docker_compose() {
-    log_info "Installing Docker Compose..."
+# Check system resources
+check_system_resources() {
+    local total_memory_gb
+    local cpu_cores
+    
     case "$(uname)" in
-        Darwin)
-            if command -v brew &>/dev/null; then
-                brew install docker-compose
-            else
-                log_error "Please install Docker Compose manually"
-                return 1
-            fi
+        "Darwin")
+            total_memory_gb=$(sysctl hw.memsize | awk '{print $2/1024/1024/1024}')
+            cpu_cores=$(sysctl -n hw.ncpu)
             ;;
-        Linux)
-            COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep 'tag_name' | cut -d\" -f4)
-            sudo curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-            sudo chmod +x /usr/local/bin/docker-compose
-            ;;
-        *)
-            log_error "Unsupported operating system"
-            return 1
-            ;;
-    esac
-    return 0
-}
-
-# Function to start Docker daemon
-start_docker() {
-    log_info "Starting Docker daemon..."
-    case "$(uname)" in
-        Darwin)
-            log_info "Starting Docker Desktop..."
-            open -a Docker
-            # Start Docker.app in background and don't wait
-            (open -a Docker && sleep 1) &
-            ;;
-        Linux)
-            if command -v systemctl &>/dev/null; then
-                sudo systemctl start docker &
-            else
-                sudo service docker start &
-            fi
-            ;;
-        *)
-            log_error "Unsupported operating system"
-            return 1
+        "Linux")
+            total_memory_gb=$(free -g | awk '/^Mem:/{print $2}')
+            cpu_cores=$(nproc)
             ;;
     esac
     
-    # Don't wait - return immediately
-    return 0
-}
-
-# Function to check Docker installation
-ensure_docker() {
-    if ! command -v docker &>/dev/null; then
-        log_warn "Docker not found, attempting to install..."
-        if ! install_docker; then
-            log_error "Failed to install Docker"
-            log_error "If you see Go version mismatch errors, it's because Docker isn't properly installed"
-            log_error "Please install Docker manually and try again"
-            return 2
-        fi
+    if (( $(echo "$total_memory_gb < $MIN_MEMORY_GB" | bc -l) )); then
+        log_error "Insufficient memory: ${total_memory_gb}GB available, ${MIN_MEMORY_GB}GB required"
+        return 1
     fi
     
-    # Start Docker daemon in background if not running
-    if ! docker info &>/dev/null; then
-        log_warn "Docker daemon not running"
-        if ! start_docker; then
-            log_error "Failed to start Docker daemon"
-            log_error "If you see Go version mismatch errors, it's because Docker isn't running"
-            log_error "Please start Docker manually and try again"
-            return 3
-        fi
+    if [ "$cpu_cores" -lt "$MIN_CPU_CORES" ]; then
+        log_error "Insufficient CPU cores: ${cpu_cores} available, ${MIN_CPU_CORES} required"
+        return 1
     fi
-    
-    return 0
 }
 
-# Function to ensure Docker Compose
-ensure_docker_compose() {
-    if ! command -v docker-compose &>/dev/null && ! docker compose version &>/dev/null; then
-        log_warn "Docker Compose not found, attempting to install..."
-        if ! install_docker_compose; then
-            log_error "Failed to install Docker Compose"
+# Check required ports
+check_ports() {
+    for port in "${REQUIRED_PORTS[@]}"; do
+        if lsof -i ":$port" >/dev/null 2>&1; then
+            log_error "Port $port is already in use"
             return 1
         fi
-    fi
-    return 0
+    done
 }
 
-# Function to check disk space
-check_disk_space() {
-    local docker_root
-    if docker info 2>/dev/null | grep -q "Docker Root Dir"; then
-        docker_root=$(docker info 2>/dev/null | grep "Docker Root Dir" | cut -d: -f2 | tr -d '[:space:]')
-    else
-        docker_root="/var/lib/docker"
+# Validate Docker Compose file
+validate_compose_file() {
+    local compose_file="config/dev/docker-compose.yml"
+    if [ ! -f "$compose_file" ]; then
+        log_error "Docker Compose file not found: $compose_file"
+        return 1
     fi
     
-    local available_space
-    if [[ "$(uname)" == "Darwin" ]]; then
-        available_space=$(df -g "$docker_root" | awk 'NR==2 {print $4}')
-    else
-        available_space=$(df -BG "$docker_root" | awk 'NR==2 {print $4}' | tr -d 'G')
+    if ! docker compose -f "$compose_file" config >/dev/null 2>&1; then
+        log_error "Invalid Docker Compose file"
+        return 1
+    fi
+}
+
+# Check environment variables
+check_env_vars() {
+    local env_file="config/dev/.env.dev"
+    if [ ! -f "$env_file" ]; then
+        log_error "Environment file not found: $env_file"
+        return 1
     fi
     
-    if (( available_space < DOCKER_MIN_SPACE )); then
-        log_warn "Low disk space. Available: ${available_space}GB, Required: ${DOCKER_MIN_SPACE}GB"
-        log_info "Running cleanup..."
-        docker system prune -f --volumes
-        return 4
-    fi
-    return 0
+    # Check for required variables
+    local required_vars=(
+        "GO_ENV"
+        "CGO_ENABLED"
+        "GO111MODULE"
+    )
+    
+    for var in "${required_vars[@]}"; do
+        if ! grep -q "^${var}=" "$env_file"; then
+            log_error "Required environment variable missing: $var"
+            return 1
+        fi
+    done
+}
+
+# Cleanup stale resources
+cleanup_stale_resources() {
+    # Remove stopped containers
+    docker container prune -f >/dev/null 2>&1
+    
+    # Remove unused volumes
+    docker volume prune -f >/dev/null 2>&1
+    
+    # Remove unused networks
+    docker network prune -f >/dev/null 2>&1
+    
+    # Remove dangling images
+    docker image prune -f >/dev/null 2>&1
 }
 
 # Main execution
 main() {
-    log_info "Ensuring Docker environment..."
+    [[ "$QUIET" == "false" ]] && log_info "Checking Docker environment..."
     
-    # Ensure Docker is installed and running (async)
-    ensure_docker || {
-        log_error "Failed to ensure Docker environment"
-        exit $?
-    }
-    
-    # Check disk space
-    check_disk_space || {
-        log_error "Insufficient disk space"
-        exit $?
-    }
-    
-    # Ensure Docker Compose if needed
-    if [[ "$NO_COMPOSE" != "true" ]]; then
-        ensure_docker_compose || {
-            log_error "Failed to ensure Docker Compose"
-            exit $?
-        }
+    # Run all checks
+    if ! check_docker_environment ${QUIET:+--quiet}; then
+        if ! install_docker; then
+            log_error "Failed to install Docker"
+            exit 1
+        fi
+        
+        if ! start_docker_daemon; then
+            log_error "Failed to start Docker daemon"
+            exit 1
+        fi
     fi
     
-    log_info "Docker environment is ready"
-    return 0
+    # Additional checks
+    check_docker_version || exit 1
+    check_system_resources || exit 1
+    check_ports || exit 1
+    validate_compose_file || exit 1
+    check_env_vars || exit 1
+    
+    # Cleanup
+    cleanup_stale_resources
+    
+    # Install Docker Compose if needed
+    if [[ "$NO_COMPOSE" != "true" ]]; then
+        if ! command -v docker-compose &>/dev/null; then
+            if ! install_docker_compose; then
+                log_error "Failed to install Docker Compose"
+                exit 1
+            fi
+        fi
+    fi
+    
+    [[ "$QUIET" == "false" ]] && log_info "Docker environment is ready"
+    exit 0
 }
 
 main "$@" 

@@ -1,0 +1,7 @@
+{
+        "protocol_version": "1.0",
+        "level": "5",
+        "state": {"package":"store","coverage_dir":"/Users/eli/coding/projects/flow-control/scripts/coverage/go"},
+        "metadata": {"timeout":"30s"},
+        "timestamp": "2024-12-03T20:04:45Z"
+    }

@@ -1,0 +1,3 @@
+{"timestamp":"2024-12-03T15:59:25Z","suite":"global","event":"start","status":"running","message":"Starting test execution"}
+{"timestamp":"2024-12-03T15:59:25Z","suite":"unit tests","event":"start","status":"running","message":"Starting test suite"}
+{"timestamp":"2024-12-03T15:59:59Z","suite":"unit tests","event":"end","status":"failed","message":"Check /Users/eli/coding/projects/flow-control/scripts/logs/tests/20241203_085925/unit_tests.log for details"}
