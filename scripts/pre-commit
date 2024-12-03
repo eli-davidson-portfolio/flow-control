@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # pre-commit
 #
 # Purpose:
@@ -12,6 +12,8 @@
 #   3. Unit tests
 #   4. Generated code is up to date
 #   5. Dependency consistency
+#   6. Documentation validation
+#   7. Shell script validation
 #
 # Skip checks:
 #   To skip checks temporarily, use:
@@ -21,11 +23,10 @@
 #   SKIP_TESTS=1 git commit
 #   SKIP_LINT=1 git commit
 #   SKIP_FMT=1 git commit
+#   SKIP_DOCS=1 git commit
+#   SKIP_SHELL=1 git commit
 
-set -e
-
-# Enable debug output
-set -x
+set -euo pipefail
 
 # Get the project root directory
 ROOT_DIR="$(git rev-parse --show-toplevel)"
@@ -33,98 +34,173 @@ cd "$ROOT_DIR"
 
 # Source common functions and variables
 source "${ROOT_DIR}/scripts/common/init.sh"
+source "${ROOT_DIR}/scripts/lib/progress/progress.sh"
 
 # Configuration
 STAGED_GO_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
 STAGED_DOCS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(md|yaml|json)$' || true)
-
-log_info "Staged Go files: $STAGED_GO_FILES"
-log_info "Staged docs: $STAGED_DOCS"
+STAGED_SHELL=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(sh|bash)$' || true)
 
 # Helper functions
 should_skip() {
     local check="$1"
     local skip_var="SKIP_${check}"
-    [[ "${!skip_var}" == "1" ]]
+    [[ "${!skip_var:-}" == "1" ]]
 }
 
-# Function to run a check with proper logging
+# Function to check if Docker is available
+check_docker() {
+    if ! command -v docker >/dev/null 2>&1; then
+        status_msg "Docker is not installed" "error"
+        return 1
+    fi
+    
+    if ! docker info >/dev/null 2>&1; then
+        status_msg "Docker daemon is not running" "error"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Function to run a check with proper logging and progress indication
 run_check() {
     local name="$1"
     local cmd="$2"
+    local duration="${3:-10}"
     
     if should_skip "$name"; then
-        log_warn "Skipping $name check (SKIP_$name=1)"
+        status_msg "Skipping $name check (SKIP_$name=1)" "warning"
         return 0
     fi
     
-    log_info "Running $name check..."
-    log_info "Command: $cmd"
-    if eval "$cmd"; then
-        log_info "$name check passed"
+    status_msg "Running $name check..." "info"
+    
+    # Create a temporary file for output
+    local temp_file
+    temp_file=$(mktemp)
+    
+    # Run the command with progress bar
+    if eval "$cmd" > "$temp_file" 2>&1; then
+        progress_bar "$duration"
+        status_msg "$name check passed" "success"
+        rm "$temp_file"
         return 0
     else
-        log_error "$name check failed"
+        progress_bar "$duration"
+        status_msg "$name check failed" "error"
+        cat "$temp_file"
+        rm "$temp_file"
         return 1
     fi
 }
 
-# Check if any Go files are staged
-if [[ -z "$STAGED_GO_FILES" && -z "$STAGED_DOCS" ]]; then
-    log_info "No Go files or documentation files staged for commit"
+# Show logo and start message
+show_logo
+status_msg "Running pre-commit checks" "info"
+
+# Check if any files are staged
+if [[ -z "$STAGED_GO_FILES" && -z "$STAGED_DOCS" && -z "$STAGED_SHELL" ]]; then
+    status_msg "No relevant files staged for commit" "info"
     exit 0
 fi
 
-# Run formatting check
+# Display staged files
 if [[ -n "$STAGED_GO_FILES" ]]; then
-    # First format the files
-    docker compose run --rm test sh -c "
+    status_msg "Go files staged:" "info"
+    echo "$STAGED_GO_FILES"
+fi
+
+if [[ -n "$STAGED_DOCS" ]]; then
+    status_msg "Documentation files staged:" "info"
+    echo "$STAGED_DOCS"
+fi
+
+if [[ -n "$STAGED_SHELL" ]]; then
+    status_msg "Shell scripts staged:" "info"
+    echo "$STAGED_SHELL"
+fi
+
+# Check Docker availability
+if ! check_docker; then
+    status_msg "Docker is required for pre-commit checks" "error"
+    status_msg "Please start Docker and try again" "info"
+    exit 1
+fi
+
+# Run formatting check for Go files
+if [[ -n "$STAGED_GO_FILES" ]]; then
+    run_check "FMT" "docker compose run --rm test bash -c '
+        cd /app &&
         go mod download &&
         go mod tidy &&
         gofmt -s -w .
-    "
-    # Check if any files were modified
-    if ! git diff --quiet; then
-        log_error "Code formatting issues found and fixed. Please review and stage the changes."
+    '" 5 || {
+        status_msg "Code formatting issues found. Please stage the formatted files." "error"
         exit 1
-    fi
+    }
 fi
 
-# Run linting check
+# Run linting check for Go files
 if [[ -n "$STAGED_GO_FILES" ]]; then
-    run_check "LINT" "docker compose run --rm test sh -c '
+    run_check "LINT" "docker compose run --rm test bash -c '
+        cd /app &&
         go mod download &&
         go mod tidy &&
         go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest &&
         /go/bin/golangci-lint run
-    '" || {
-        log_error "Linting issues found. Please run: docker compose run --rm test ./scripts/lint.sh"
+    '" 10 || {
+        status_msg "Linting issues found. Please fix the issues and try again." "error"
         exit 1
     }
 fi
 
 # Run tests
-run_check "TEST" "docker compose run --rm test sh -c '
+run_check "TEST" "docker compose run --rm test bash -c '
+    cd /app &&
     go mod download &&
     go mod tidy &&
-    go test ./...
-'" || {
-    log_error "Tests failed. Please run: docker compose run --rm test ./scripts/test.sh"
+    go test -v -race -cover ./...
+'" 15 || {
+    status_msg "Tests failed. Please fix the failing tests." "error"
     exit 1
 }
 
 # Run documentation generation if Go files changed
 if [[ -n "$STAGED_GO_FILES" ]]; then
-    run_check "DOCS" "docker compose run --rm test sh -c '
+    run_check "DOCS" "docker compose run --rm test bash -c '
+        cd /app &&
         go mod download &&
         go mod tidy &&
         go install github.com/swaggo/swag/cmd/swag@latest &&
         /go/bin/swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal
-    '" || {
-        log_error "Documentation generation failed. Please run: docker compose run --rm test ./scripts/build.sh"
+    '" 5 || {
+        status_msg "Documentation generation failed. Please check the swagger annotations." "error"
         exit 1
     }
 fi
 
-log_info "All pre-commit checks passed!"
+# Check shell scripts
+if [[ -n "$STAGED_SHELL" ]]; then
+    run_check "SHELL" "docker compose run --rm test bash -c '
+        cd /app &&
+        apt-get update >/dev/null 2>&1 &&
+        apt-get install -y shellcheck >/dev/null 2>&1 &&
+        shellcheck $STAGED_SHELL
+    '" 5 || {
+        status_msg "Shell script validation failed. Please fix the shellcheck issues." "error"
+        exit 1
+    }
+fi
+
+# Check if any generated files were modified
+if ! git diff --quiet; then
+    status_msg "Generated files were modified. Please review and stage the changes:" "error"
+    git status --porcelain
+    exit 1
+fi
+
+# All checks passed
+status_msg "All pre-commit checks passed! 🎉" "success"
+complete_task "Ready to commit"
 exit 0 

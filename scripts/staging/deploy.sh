@@ -74,6 +74,22 @@ show_build_progress() {
   
   echo -e "\nStarting build process..."
   
+  # First, ensure dependencies are installed
+  show_step "Installing dependencies" "start"
+  if ! docker compose -f docker-compose.staging.yml run --rm app go mod download; then
+    show_step "Failed to install dependencies" "error"
+    exit 1
+  fi
+  show_step "Dependencies installed" "success"
+  
+  # Generate documentation
+  show_step "Generating documentation" "start"
+  if ! docker compose -f docker-compose.staging.yml run --rm app sh -c 'cd /app && go install github.com/swaggo/swag/cmd/swag@latest && /go/bin/swag init -g cmd/flowcontrol/main.go --parseDependency --parseInternal'; then
+    show_step "Failed to generate documentation" "error"
+    exit 1
+  fi
+  show_step "Documentation generated" "success"
+  
   # Start the build in background and tee output to both files
   docker compose -f docker-compose.staging.yml build 2>&1 | tee "$build_output_file" "$summary_file" &
   local build_pid=$!

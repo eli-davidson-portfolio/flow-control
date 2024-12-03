@@ -5,9 +5,15 @@ SHELL := /bin/bash
 INSTALL_DIR := $(shell pwd)
 SCRIPTS_DIR := $(INSTALL_DIR)/scripts
 LIB_DIR := $(SCRIPTS_DIR)/lib
+PROGRESS_SCRIPT := $(LIB_DIR)/progress/progress.sh
 
 # Source all library functions
 export BASH_ENV := $(LIB_DIR)/env/utils.sh
+
+# Test settings
+TEST_TIMEOUT := 5m
+TEST_FLAGS := -v -race -cover
+TEST_DIRS := ./...
 
 .PHONY: all build run test clean lint fmt check install-tools pre-commit dev docker-test docker-check setup-staging verify-staging clean-env clean-env-force test-scripts
 
@@ -45,6 +51,45 @@ ensure-ports:
 				echo "Failed to free ports even after force cleanup" && \
 				exit 1; \
 			fi; \
+		fi'
+
+# Ensure test container is ready
+ensure-test-container:
+	@bash -c '. $(PROGRESS_SCRIPT) && \
+		status_msg "Preparing test environment" "info" && \
+		if ! docker compose ps test | grep -q "Up"; then \
+			status_msg "Starting test container..." "info" && \
+			docker compose up -d test && \
+			status_msg "Waiting for test container to be ready..." "info" && \
+			for i in $$(seq 1 30); do \
+				if docker compose exec -T test true 2>/dev/null; then \
+					status_msg "Test container is ready" "success" && \
+					exit 0; \
+				fi; \
+				sleep 1; \
+			done; \
+			status_msg "Test container failed to start" "error" && \
+			exit 1; \
+		else \
+			status_msg "Test container is already running" "success"; \
+		fi'
+
+# Run tests with proper output handling
+test: ensure-test-container ## Run tests
+	@bash -c '. $(PROGRESS_SCRIPT) && \
+		show_logo && \
+		status_msg "Running tests..." "info" && \
+		LOG_DIR="logs/test-$$(date +%Y%m%d_%H%M%S)" && \
+		mkdir -p "$$LOG_DIR" && \
+		if docker compose exec -T test bash -c "cd /app && \
+			go test $(TEST_FLAGS) -timeout $(TEST_TIMEOUT) $(TEST_DIRS)" > "$$LOG_DIR/test.log" 2>&1; then \
+			status_msg "Tests completed successfully" "success" && \
+			cat "$$LOG_DIR/test.log"; \
+		else \
+			status_msg "Tests failed" "error" && \
+			cat "$$LOG_DIR/test.log" && \
+			status_msg "Test logs saved to $$LOG_DIR/test.log" "info" && \
+			exit 1; \
 		fi'
 
 # Capture logs before cleanup
@@ -131,19 +176,15 @@ setup-staging: staging
 			exit 1; \
 		}'
 
-logs:
-	@$(SCRIPTS_DIR)/staging/logs.sh
+logs: ## View container logs
+	@source scripts/common/init.sh && \
+	log_info "Capturing container logs" && \
+	log_file=$$(capture_logs) && \
+	log_info "Container logs saved to $$log_file" && \
+	cat "$$log_file"
 
-dev: clean-env ensure-ports
-	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
-		log_info "Starting development environment" && \
-		if ! docker compose -f docker-compose.yml up -d --build; then \
-			log_error "Failed to start services" && \
-			$(MAKE) capture-logs && \
-			exit 1; \
-		fi && \
-		log_info "Development environment started" && \
-		docker compose ps'
+dev: ## Start development environment
+	@bash scripts/dev/deploy.sh
 
 build:
 	@echo "Building application..."
@@ -160,38 +201,30 @@ run: check
 		status_msg 'Launching development server' 'info' && \
 		docker compose up dev"
 
-test:
-	@echo "Running tests..."
+fmt: ensure-test-container ## Format code
+	@echo "Formatting code..."
 	@bash -c ". $(PROGRESS_SCRIPT) && \
-		show_logo && \
-		status_msg 'Initializing test suite' 'info' && \
-		(docker compose run --rm test go test ./... & progress_bar 20) && \
-		complete_task 'Tests complete!'"
+		status_msg 'Formatting code' 'info' && \
+		(docker compose exec -T test bash -c 'cd /app && go fmt ./...' & progress_bar 5) && \
+		complete_task 'Formatting complete!'"
 
-clean:
-	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
-		log_info "Cleaning up environment..." && \
-		docker compose -f docker-compose.staging.yml down --remove-orphans && \
-		docker system prune -f > /dev/null 2>&1 || true && \
-		rm -rf logs/deploy-* || true'
-
-lint:
+lint: ensure-test-container ## Run linters
 	@echo "Running linters..."
 	@bash -c ". $(PROGRESS_SCRIPT) && \
 		status_msg 'Starting code analysis' 'info' && \
-		(docker compose run --rm test sh -c '\
+		(docker compose exec -T test bash -c 'cd /app && \
 			go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && \
 			/go/bin/golangci-lint run' & progress_bar 15) && \
 		complete_task 'Linting complete!'"
 
-fmt:
-	@echo "Formatting code..."
-	@bash -c ". $(PROGRESS_SCRIPT) && \
-		status_msg 'Formatting code' 'info' && \
-		docker compose run --rm test sh -c 'go fmt ./...' && \
-		complete_task 'Formatting complete!'"
+clean:
+	@bash -c 'source $(LIB_DIR)/env/utils.sh && \
+		log_info "Cleaning up environment..." && \
+			docker compose -f docker-compose.staging.yml down --remove-orphans && \
+			docker system prune -f > /dev/null 2>&1 || true && \
+			rm -rf logs/deploy-* || true'
 
-check: fmt lint test
+check: fmt lint test ## Run all checks
 	@bash -c ". $(PROGRESS_SCRIPT) && \
 		status_msg 'All checks passed!' 'success'"
 

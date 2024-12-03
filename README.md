@@ -1,32 +1,51 @@
-# Flow Control IDE
+# Flow Control
 
-A real-time flow development IDE with a modern UI and powerful features.
+A modern flow-based programming system built with Go.
+
+## Quick Start
+
+### Development Environment
+
+```bash
+# Start development environment
+make dev
+
+# Run tests
+make test
+
+# Run linters
+make lint
+
+# Run all checks
+make check
+```
+
+### Staging Environment
+
+```bash
+# Deploy to staging
+make staging
+```
 
 ## Features
 
-- Custom flow language with syntax highlighting
-- Real-time flow visualization using Mermaid diagrams
-- Live metrics and logging
-- SQLite database for flow storage
-- Server-Sent Events (SSE) for real-time updates
-- Modern UI with dark theme
-- Hot reload during development
-- Docker support for development and testing
-- Webhook integration for automated deployments
-- Comprehensive test framework for shell scripts
+- Hot reload for development
+- Automatic health checks
+- Visual progress feedback
+- Container status monitoring
+- Environment-aware host detection
+- Automated documentation generation
 
-## Prerequisites
+## Development
 
-- Docker and Docker Compose
-- Or locally:
-  - Go 1.22 or later
-  - SQLite3
-  - Node.js (for Monaco Editor)
-  - Bash 4+ (for testing framework)
+### Prerequisites
 
-## Getting Started
+- Docker
+- Docker Compose
+- Go 1.22 or later
+- Make
 
-### Using Docker (Recommended)
+### Environment Setup
 
 1. Clone the repository:
    ```bash
@@ -34,135 +53,105 @@ A real-time flow development IDE with a modern UI and powerful features.
    cd flow-control
    ```
 
-2. Start the development server:
+2. Start development environment:
    ```bash
-   docker compose up dev
+   make dev
    ```
 
-3. Run tests:
-   ```bash
-   # Run Go tests
-   docker compose run test
-   
-   # Run shell script tests
-   make test-scripts
-   ```
+3. Access the application:
+   - App: http://localhost:8080
+   - API Docs: http://localhost:8080/swagger/index.html
+   - Health: http://localhost:8080/health
 
-4. Run code checks (formatting, linting, and tests):
+### Development Workflow
+
+1. Make changes to the code
+2. Tests run automatically
+3. Application hot reloads
+4. Run checks before committing:
    ```bash
    make check
    ```
 
-### Staging Deployment
+### Testing
 
-1. Clean the environment:
+```bash
+# Run all tests
+make test
+
+# Format code
+make fmt
+
+# Run linters
+make lint
+
+# Run all checks
+make check
+```
+
+### Deployment
+
+#### Development
+```bash
+make dev
+```
+
+#### Staging
+```bash
+make staging
+```
+
+### Container Management
+
+```bash
+# View logs
+make logs
+
+# Clean environment
+make clean
+
+# Force cleanup
+make clean-env-force
+```
+
+## Documentation
+
+- API documentation is automatically generated during build
+- Swagger UI available at `/swagger/index.html`
+- Health endpoint at `/health`
+
+## Troubleshooting
+
+### Common Issues
+
+1. Port Conflicts
    ```bash
-   # Standard cleanup
-   make clean-env
-   
-   # Force cleanup (if needed)
+   # Resolution
    make clean-env-force
    ```
 
-2. Deploy to staging:
+2. Build Failures
    ```bash
-   make setup-staging
+   # Resolution
+   make clean
+   go mod tidy
+   make staging
    ```
 
-3. Verify deployment:
+3. Health Check Failures
    ```bash
-   # Health check endpoints
-   curl http://localhost:8080/health
-   curl http://localhost:9000/hooks
+   # Resolution
+   make logs
+   docker compose logs <container>
    ```
 
-### Webhook Integration
+## Contributing
 
-The application includes a webhook server for automated deployments:
+1. Fork the repository
+2. Create your feature branch
+3. Run tests and linters
+4. Submit a pull request
 
-1. Configuration (`config/hooks.json`):
-   ```json
-   {
-     "id": "deploy",
-     "execute-command": "/app/scripts/deploy.sh",
-     "trigger-rule": {
-       "match": {
-         "type": "value",
-         "value": "staging",
-         "parameter": {
-           "source": "payload",
-           "name": "environment"
-         }
-       }
-     }
-   }
-   ```
+## License
 
-2. Trigger deployment:
-   ```bash
-   curl -X POST http://localhost:9000/hooks/deploy \
-        -H "Content-Type: application/json" \
-        -d '{"environment": "staging"}'
-   ```
-
-## Project Structure
-
-```
-/cmd
-  /flowcontrol     # Entry point
-/internal
-  /server          # HTTP server, SSE, routing
-  /flow            # Flow management
-  /parser          # Custom syntax parser
-  /store           # Database operations
-  /metrics         # Metrics collection
-  /logger          # Logging system
-  /config          # Configuration management
-/pkg               # Reusable packages
-/web
-  /templates       # HTML templates
-  /static          # CSS, JS, etc.
-/tests             # Integration tests
-/scripts
-  /lib             # Shell script libraries
-    /docker        # Docker management
-    /ports         # Port management
-    /env           # Environment utilities
-    /test          # Test framework
-
-# Docker Configuration
-
-## Network Configuration
-
-When using host networking mode (`network_mode: host`), there are important considerations for service binding:
-
-1. **Service Ports**
-   - Bind services to `0.0.0.0` to accept external connections
-   - Configure in `docker-compose.yml`:
-     ```yaml
-     services:
-       app:
-         environment:
-           SERVER_HOST: "0.0.0.0"  # Allow external access
-     ```
-
-2. **Health Checks**
-   - Use `127.0.0.1` for internal health checks
-   - Example configuration:
-     ```yaml
-     services:
-       app:
-         healthcheck:
-           test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]
-     ```
-
-3. **Common Issues**
-   - Binding to `127.0.0.1` prevents external access
-   - Container health checks may pass while external access fails
-   - Solution: Always bind services to `0.0.0.0` with host networking
-
-4. **Port Management**
-   - Health checks use localhost (`127.0.0.1`)
-   - Services bind to all interfaces (`0.0.0.0`)
-   - Port conflicts are automatically resolved
-   - Ports are released gracefully on shutdown
+This project is licensed under the MIT License - see the LICENSE file for details.

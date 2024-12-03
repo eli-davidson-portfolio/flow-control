@@ -10,5 +10,10 @@
     "level": "debug",
     "format": "json",
     "file": "/app/logs/flow-control.log"
+  },
+  "development": {
+    "hot_reload": true,
+    "swagger_enabled": true,
+    "log_requests": true
   }
 } 
