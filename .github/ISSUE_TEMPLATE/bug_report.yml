@@ -2,7 +2,8 @@ name: Bug Report
 description: Create a report to help us improve
 title: "[Bug]: "
 labels: ["bug"]
-projects: ["eli-davidson-portfolio/12"]
+projects:
+  - "eli-davidson-portfolio/12"
 body:
   - type: markdown
     attributes:
