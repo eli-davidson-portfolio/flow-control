@@ -2,20 +2,48 @@ name: Feature Request
 description: Suggest an idea for this project
 title: "[Feature]: "
 labels: ["enhancement"]
+projects: ["eli-davidson-portfolio/12"]
 body:
   - type: markdown
     attributes:
       value: |
         Thanks for taking the time to suggest a new feature!
-        
-        This issue will automatically appear in our organization-wide project board.
+        This will be tracked in our organization-wide project board at: https://github.com/orgs/eli-davidson-portfolio/projects/12
+
+  - type: dropdown
+    id: feature_type
+    attributes:
+      label: Feature Type
+      description: What type of feature is this?
+      options:
+        - New Functionality
+        - Enhancement to Existing Feature
+        - Performance Improvement
+        - User Experience
+        - Developer Experience
+        - Documentation
+    validations:
+      required: true
 
   - type: input
     id: project_context
     attributes:
-      label: Project Context
-      description: What area of the project does this feature relate to?
-      placeholder: "e.g., UI/UX, Backend, Testing, Documentation"
+      label: Project Component
+      description: Which specific component or area of the project does this feature target?
+      placeholder: "e.g., Authentication System, Data Visualization, API Endpoints"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact_scope
+    attributes:
+      label: Impact Scope
+      description: How broad is the impact of this feature?
+      options:
+        - Core Functionality (Affects entire project)
+        - Major Component (Affects multiple features)
+        - Single Feature (Localized impact)
+        - Developer Tooling (Internal impact)
     validations:
       required: true
 
@@ -37,6 +65,19 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: development_stage
+    attributes:
+      label: Development Stage
+      description: What stage is this feature in?
+      options:
+        - Concept (Just an idea)
+        - Planning (Requirements gathering)
+        - Ready for Development
+        - Blocked (Dependencies needed)
+    validations:
+      required: true
+
   - type: textarea
     id: alternatives
     attributes:
@@ -46,23 +87,36 @@ body:
     validations:
       required: false
 
-  - type: textarea
-    id: context
-    attributes:
-      label: Additional Context
-      description: Add any other context about the feature request here
-      placeholder: "Add any other context, screenshots, or examples about the feature request here"
-    validations:
-      required: false
-
   - type: dropdown
     id: priority
     attributes:
       label: Priority Level
       description: How important is this feature to the project?
       options:
-        - Low (Nice to have)
-        - Medium (Important but not urgent)
         - High (Critical for project success)
+        - Medium (Important but not urgent)
+        - Low (Nice to have)
     validations:
-      required: true 
+      required: true
+
+  - type: dropdown
+    id: effort_estimate
+    attributes:
+      label: Effort Estimate
+      description: Rough estimate of implementation effort
+      options:
+        - Small (Hours)
+        - Medium (Days)
+        - Large (Weeks)
+        - XLarge (Months)
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the feature request here
+      placeholder: "Add any other context, screenshots, mockups, or examples about the feature request here"
+    validations:
+      required: false 

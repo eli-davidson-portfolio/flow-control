@@ -2,20 +2,48 @@ name: Bug Report
 description: Create a report to help us improve
 title: "[Bug]: "
 labels: ["bug"]
+projects: ["eli-davidson-portfolio/12"]
 body:
   - type: markdown
     attributes:
       value: |
         Thanks for taking the time to report a bug!
-        
-        This issue will automatically appear in our organization-wide project board.
+        This will be tracked in our organization-wide project board at: https://github.com/orgs/eli-davidson-portfolio/projects/12
+
+  - type: dropdown
+    id: bug_type
+    attributes:
+      label: Bug Type
+      description: What type of bug is this?
+      options:
+        - Functionality (Something isn't working)
+        - UI/UX (Visual or usability issue)
+        - Performance (Slowness or resource issues)
+        - Security (Potential vulnerability)
+        - Data (Incorrect or missing data)
+        - Integration (API or service connection)
+    validations:
+      required: true
 
   - type: input
     id: project_context
     attributes:
-      label: Project Context
-      description: Which part of the project is affected?
-      placeholder: "e.g., Login System, Data Display, API Integration"
+      label: Project Component
+      description: Which specific component or area is affected?
+      placeholder: "e.g., Login Form, Data Table, API Endpoint"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact_scope
+    attributes:
+      label: Impact Scope
+      description: How many users/features are affected?
+      options:
+        - All Users (System-wide impact)
+        - Many Users (Major feature affected)
+        - Some Users (Specific use case)
+        - Edge Case (Rare conditions)
     validations:
       required: true
 
@@ -50,6 +78,45 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Bug Frequency
+      description: How often does this bug occur?
+      options:
+        - Always (100% reproducible)
+        - Often (Happens frequently)
+        - Sometimes (Intermittent)
+        - Rarely (Hard to reproduce)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Bug Severity
+      description: How severe is this bug?
+      options:
+        - Critical (System down/Data loss)
+        - High (Major feature broken)
+        - Medium (Feature impaired)
+        - Low (Minor inconvenience)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: current_status
+    attributes:
+      label: Current Status
+      description: Current state of the bug
+      options:
+        - New (Not yet investigated)
+        - Investigating (Looking into it)
+        - Identified (Root cause known)
+        - Blocked (Dependencies/Info needed)
+    validations:
+      required: true
+
   - type: textarea
     id: environment
     attributes:
@@ -59,8 +126,9 @@ body:
         - Browser: [e.g. Chrome, Safari]
         - Version: [e.g. 22]
         - Operating System: [e.g. Windows, macOS]
+        - Environment: [e.g. Production, Staging, Development]
     validations:
-      required: false
+      required: true
 
   - type: textarea
     id: logs
@@ -71,14 +139,11 @@ body:
     validations:
       required: false
 
-  - type: dropdown
-    id: severity
+  - type: textarea
+    id: additional_info
     attributes:
-      label: Bug Severity
-      description: How severe is this bug?
-      options:
-        - Low (Minor inconvenience)
-        - Medium (Functionality impaired but workable)
-        - High (Critical functionality broken)
+      label: Additional Information
+      description: Any other context, screenshots, or relevant information
+      placeholder: "Add any other context about the problem here"
     validations:
-      required: true 
+      required: false 
