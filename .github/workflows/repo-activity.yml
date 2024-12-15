@@ -1,0 +1,23 @@
+name: Repository Activity Report
+on:
+  schedule:
+    - cron: '0 0 1 * *'  # First day of each month
+  workflow_dispatch:
+
+jobs:
+  activity-report:
+    name: Generate Activity Report
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Generate repository traffic report
+        uses: busy-kernel/github-repository-traffic-action@v1
+        with:
+          ghtoken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Save report as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: repository-traffic-report
+          path: traffic_report.md
