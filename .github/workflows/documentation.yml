@@ -1,0 +1,31 @@
+name: Documentation Maintenance
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - '**.md'
+      - 'docs/**'
+
+jobs:
+  markdown-check:
+    name: Check Markdown
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Lint markdown files
+        uses: DavidAnson/markdownlint-cli2-action@v11
+        with:
+          globs: '**/*.md'
+          config: '{"MD013": false, "MD033": false}'
+
+      - name: Check markdown links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-verbose-mode: 'yes'
+          config-file: '.github/workflows/mlc_config.json'
