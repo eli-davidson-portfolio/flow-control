@@ -3,13 +3,13 @@ description: Suggest an idea for this project
 title: "[Feature]: "
 labels: ["enhancement"]
 projects:
-  - "eli-davidson-portfolio/12"
+  - "eli-davidson-portfolio/1"
 body:
   - type: markdown
     attributes:
       value: |
         Thanks for taking the time to suggest a new feature!
-        This will be tracked in our organization-wide project board at: https://github.com/orgs/eli-davidson-portfolio/projects/12
+        This will be tracked in our organization-wide project board at: https://github.com/orgs/eli-davidson-portfolio/projects/1
 
   - type: dropdown
     id: feature_type
