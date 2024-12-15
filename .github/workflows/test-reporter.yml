@@ -1,0 +1,131 @@
+name: Test Failure Bug Report Generator
+on:
+  workflow_run:
+    workflows: ["*"]
+    types:
+      - completed
+
+jobs:
+  create-bug-reports:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download workflow artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.payload.workflow_run.id,
+            });
+            
+            const testResults = artifacts.data.artifacts.find(
+              artifact => artifact.name === "test-results"
+            );
+            
+            if (testResults) {
+              const download = await github.rest.actions.downloadArtifact({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                artifact_id: testResults.id,
+                archive_format: 'zip',
+              });
+              
+              const fs = require('fs');
+              fs.writeFileSync('test-results.zip', Buffer.from(download.data));
+            }
+
+      - name: Process test results
+        id: process-results
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const AdmZip = require('adm-zip');
+            
+            const zip = new AdmZip('test-results.zip');
+            const results = JSON.parse(zip.readAsText('test-results.json'));
+            
+            const failureGroups = {};
+            results.failures.forEach(failure => {
+              const suite = failure.suite || 'Unknown Suite';
+              if (!failureGroups[suite]) {
+                failureGroups[suite] = [];
+              }
+              failureGroups[suite].push(failure);
+            });
+            
+            return failureGroups;
+
+      - name: Create bug reports
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const failureGroups = ${{ steps.process-results.outputs.result }};
+            
+            for (const [suite, failures] of Object.entries(failureGroups)) {
+              const existingIssues = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                labels: ['test-failure', suite]
+              });
+              
+              if (existingIssues.data.length === 0) {
+                const body = `
+                # Test Failures in ${suite}
+                
+                ## Workflow Information
+                - Workflow: ${context.payload.workflow_run.name}
+                - Run ID: ${context.payload.workflow_run.id}
+                - Triggered by: ${context.payload.workflow_run.head_commit.message}
+                - Commit: ${context.payload.workflow_run.head_commit.id}
+                
+                ## Failures
+                
+                ${failures.map(failure => `
+                ### ${failure.test}
+                
+                \`\`\`
+                ${failure.message}
+                \`\`\`
+                
+                **Stack trace:**
+                \`\`\`
+                ${failure.stack}
+                \`\`\`
+                
+                **Context:**
+                - File: ${failure.file}
+                - Line: ${failure.line}
+                - Column: ${failure.column}
+                `).join('\n')}
+                
+                ## Additional Context
+                
+                - [Link to workflow run](${context.payload.workflow_run.html_url})
+                - [Link to commit](${context.payload.workflow_run.head_commit.url})
+                `;
+                
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: `🐛 Test Failures: ${suite}`,
+                  body: body,
+                  labels: ['bug', 'test-failure', suite, 'automated-report']
+                });
+              } else {
+                const existingIssue = existingIssues.data[0];
+                const updatedBody = existingIssue.body + '\n\n' + 
+                  `## New Failures (${new Date().toISOString()})\n\n` +
+                  failures.map(f => `- ${f.test}: ${f.message}`).join('\n');
+                
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: existingIssue.number,
+                  body: updatedBody
+                });
+              }
+            }
